@@ -104,6 +104,10 @@ export function ProductCard({ product, onUpdate, onDelete }) {
             Ultima compra: {product.last_purchase || "sin registro"}
           </p>
 
+          <p className="meta">
+            Vencimiento: {product.expiry_date || "sin dato"}
+          </p>
+
           <div className="actions">
             <button
               className="btn btn-danger"

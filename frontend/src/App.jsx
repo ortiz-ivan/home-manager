@@ -4,9 +4,237 @@ import { ProductForm } from "./components/ProductForm.jsx";
 import { ProductList } from "./components/ProductList.jsx";
 import { listProducts } from "./api.js";
 
+const MODULES = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "inventory", label: "Inventario" },
+  { key: "purchases", label: "Compras" },
+  { key: "expenses", label: "Gastos" },
+  { key: "settings", label: "Categorias y Configuracion" },
+];
+
+const CATEGORY_LABELS = {
+  food: "Alimentos",
+  cleaning: "Limpieza",
+  hygiene: "Higiene",
+  home: "Hogar",
+};
+
+const CATEGORY_UNIT_COST = {
+  food: 4.8,
+  cleaning: 6.2,
+  hygiene: 5.1,
+  home: 7.4,
+};
+
+const FREQUENCY_WEIGHT = {
+  high: 1.5,
+  medium: 1,
+  low: 0.65,
+};
+
+function daysBetween(dateString) {
+  if (!dateString) {
+    return null;
+  }
+
+  const target = new Date(dateString);
+  if (Number.isNaN(target.getTime())) {
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+
+  const diff = target.getTime() - today.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function DashboardView({
+  products,
+  filteredProducts,
+  lowStockProducts,
+  criticalItems,
+  expiringSoon,
+  monthlySpendEstimate,
+  totalStockUnits,
+  categoryDistribution,
+}) {
+  const categoryTotal = Object.values(categoryDistribution).reduce((acc, value) => acc + value, 0);
+  const pieStops = ["food", "cleaning", "hygiene", "home"].reduce(
+    (acc, key) => {
+      const value = categoryDistribution[key] || 0;
+      const ratio = categoryTotal > 0 ? (value / categoryTotal) * 100 : 0;
+      const nextStop = acc.stop + ratio;
+      acc.segments.push(`${acc.colorMap[key]} ${acc.stop}% ${nextStop}%`);
+      acc.stop = nextStop;
+      return acc;
+    },
+    {
+      stop: 0,
+      segments: [],
+      colorMap: {
+        food: "#3f8efc",
+        cleaning: "#38b67a",
+        hygiene: "#f5a524",
+        home: "#ef5f6c",
+      },
+    }
+  );
+
+  const pieBackground =
+    pieStops.segments.length > 0
+      ? `conic-gradient(${pieStops.segments.join(",")})`
+      : "conic-gradient(#dce4f3 0 100%)";
+
+  return (
+    <section className="module-content fade-in">
+      <div className="section-header">
+        <h2>Control operativo del hogar</h2>
+        <p>Monitorea riesgos, consumo y gasto estimado desde una sola vista.</p>
+      </div>
+
+      <div className="alerts-grid">
+        <article className="alert-card alert-danger">
+          <header>
+            <span className="alert-icon">!</span>
+            <h3>Stock bajo</h3>
+          </header>
+          <strong>{lowStockProducts.length} productos</strong>
+          <p>Prioriza reposicion de productos criticos para evitar faltantes.</p>
+        </article>
+
+        <article className="alert-card alert-warning">
+          <header>
+            <span className="alert-icon">~</span>
+            <h3>Proximos a vencer</h3>
+          </header>
+          <strong>{expiringSoon.length} productos</strong>
+          <p>
+            Detectados con fecha de vencimiento dentro de 14 dias.
+          </p>
+        </article>
+
+        <article className="alert-card alert-critical">
+          <header>
+            <span className="alert-icon">#</span>
+            <h3>Items criticos</h3>
+          </header>
+          <strong>{criticalItems.length} items</strong>
+          <p>Stock por debajo del minimo en productos de alta frecuencia.</p>
+        </article>
+      </div>
+
+      <div className="kpi-grid">
+        <article className="kpi-card">
+          <p>Gasto mensual estimado</p>
+          <h3>${monthlySpendEstimate.toFixed(2)}</h3>
+          <small>Estimacion basada en categoria y frecuencia de uso.</small>
+        </article>
+
+        <article className="kpi-card">
+          <p>Total de productos en stock</p>
+          <h3>{totalStockUnits}</h3>
+          <small>Unidades totales disponibles en inventario.</small>
+        </article>
+
+        <article className="kpi-card">
+          <p>Productos gestionados</p>
+          <h3>{products.length}</h3>
+          <small>{filteredProducts.length} visibles con filtros activos.</small>
+        </article>
+      </div>
+
+      <div className="charts-grid">
+        <article className="panel chart-panel">
+          <div className="panel-title">
+            <h3>Consumo por categoria</h3>
+          </div>
+          <div className="bars-list">
+            {Object.entries(categoryDistribution).map(([category, value]) => {
+              const max = Math.max(...Object.values(categoryDistribution), 1);
+              const width = `${(value / max) * 100}%`;
+              return (
+                <div key={category} className="bar-row">
+                  <span>{CATEGORY_LABELS[category]}</span>
+                  <div className="bar-track">
+                    <div className="bar-value" style={{ width }} />
+                  </div>
+                  <strong>{value}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+
+        <article className="panel chart-panel">
+          <div className="panel-title">
+            <h3>Distribucion del inventario</h3>
+          </div>
+          <div className="pie-wrap">
+            <div className="pie-chart" style={{ background: pieBackground }} />
+            <div className="pie-legend">
+              {Object.entries(categoryDistribution).map(([category, value]) => (
+                <p key={category}>
+                  <span className={`legend-dot ${category}`} />
+                  {CATEGORY_LABELS[category]}: {value}
+                </p>
+              ))}
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <article className="panel recent-panel">
+        <div className="panel-title">
+          <h3>Resumen de inventario</h3>
+        </div>
+        <div className="summary-list">
+          {filteredProducts.slice(0, 6).map((product) => {
+            const isLow = product.stock <= product.stock_min;
+            const status = isLow ? "Bajo" : product.stock <= product.stock_min * 2 ? "Medio" : "Alto";
+            return (
+              <div className="summary-row" key={product.id}>
+                <div>
+                  <strong>{product.name}</strong>
+                  <p>{CATEGORY_LABELS[product.category] || product.category}</p>
+                </div>
+                <div className={`stock-chip ${status.toLowerCase()}`}>{status}</div>
+              </div>
+            );
+          })}
+          {filteredProducts.length === 0 && <p>No hay productos para mostrar.</p>}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function PlaceholderModule({ title, description }) {
+  return (
+    <section className="module-content fade-in">
+      <div className="section-header">
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+      <article className="panel placeholder">
+        <p>Este modulo queda listo para conectar con datos reales del backend.</p>
+      </article>
+    </section>
+  );
+}
+
 function App() {
+  const [route, setRoute] = useState("dashboard");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const navigateTo = (moduleKey) => {
+    setRoute(moduleKey);
+    setIsModalOpen(false);
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -25,23 +253,179 @@ function App() {
     loadProducts();
   }, []);
 
-  return (
-    <>
-      <header className="app-header">
-        <h1>Home Manager</h1>
-        <p>Inventario diario con acciones rapidas</p>
-      </header>
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.key === "Escape") {
+        setIsModalOpen(false);
+      }
+    };
 
-      <main className="layout">
-        <ProductForm onProductCreated={loadProducts} />
-        <ProductList
-          products={products}
-          loading={loading}
-          onUpdate={loadProducts}
-          onDelete={loadProducts}
-        />
-      </main>
-    </>
+    if (isModalOpen) {
+      document.addEventListener("keydown", handleEsc);
+    }
+
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [isModalOpen]);
+
+  const filteredProducts = products.filter((product) => {
+    const category = CATEGORY_LABELS[product.category] || product.category;
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    return (
+      product.name.toLowerCase().includes(query) ||
+      String(category).toLowerCase().includes(query)
+    );
+  });
+
+  const lowStockProducts = products.filter((product) => product.stock <= product.stock_min);
+  const criticalItems = products.filter(
+    (product) => product.stock <= product.stock_min && product.usage_frequency === "high"
+  );
+  const expiringSoon = products.filter((product) => {
+    const remaining = daysBetween(product.expiry_date);
+    return remaining !== null && remaining >= 0 && remaining <= 14;
+  });
+
+  const totalStockUnits = products.reduce((acc, product) => acc + Number(product.stock || 0), 0);
+  const monthlySpendEstimate = products.reduce((acc, product) => {
+    const baseCost = CATEGORY_UNIT_COST[product.category] || 4;
+    const frequency = FREQUENCY_WEIGHT[product.usage_frequency] || 1;
+    return acc + Number(product.stock_min || 0) * baseCost * frequency;
+  }, 0);
+
+  const categoryDistribution = products.reduce(
+    (acc, product) => {
+      if (acc[product.category] !== undefined) {
+        acc[product.category] += Number(product.stock || 0);
+      }
+      return acc;
+    },
+    { food: 0, cleaning: 0, hygiene: 0, home: 0 }
+  );
+
+  const currentModuleLabel = MODULES.find((module) => module.key === route)?.label || "Dashboard";
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand-block">
+          <h1>Home Manager</h1>
+          <p>Control domestico inteligente</p>
+        </div>
+
+        <nav className="sidebar-nav" aria-label="Modulos principales">
+          {MODULES.map((module) => (
+            <button
+              key={module.key}
+              className={`nav-item ${route === module.key ? "active" : ""}`}
+              type="button"
+              onClick={() => navigateTo(module.key)}
+            >
+              {module.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      <section className="workspace">
+        <header className="topbar">
+          <div className="topbar-title">
+            <h2>{currentModuleLabel}</h2>
+            <p>Estado actualizado del hogar en tiempo real</p>
+          </div>
+
+          <div className="topbar-actions">
+            <input
+              type="search"
+              placeholder="Buscar por nombre o categoria"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              aria-label="Buscar en inventario"
+            />
+
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Agregar producto
+            </button>
+          </div>
+        </header>
+
+        {route === "dashboard" && (
+          <DashboardView
+            products={products}
+            filteredProducts={filteredProducts}
+            lowStockProducts={lowStockProducts}
+            criticalItems={criticalItems}
+            expiringSoon={expiringSoon}
+            monthlySpendEstimate={monthlySpendEstimate}
+            totalStockUnits={totalStockUnits}
+            categoryDistribution={categoryDistribution}
+          />
+        )}
+
+        {route === "inventory" && (
+          <section className="module-content fade-in">
+            <div className="section-header">
+              <h2>Inventario activo</h2>
+              <p>
+                Gestion de productos con buscador, filtros y acciones rapidas.
+              </p>
+            </div>
+            <ProductList
+              products={filteredProducts}
+              loading={loading}
+              onUpdate={loadProducts}
+              onDelete={loadProducts}
+            />
+          </section>
+        )}
+
+        {route === "purchases" && (
+          <PlaceholderModule
+            title="Compras"
+            description="Planifica reposiciones y centraliza ordenes recurrentes del hogar."
+          />
+        )}
+
+        {route === "expenses" && (
+          <PlaceholderModule
+            title="Gastos"
+            description="Analiza la evolucion del gasto mensual por categoria."
+          />
+        )}
+
+        {route === "settings" && (
+          <PlaceholderModule
+            title="Categorias y Configuracion"
+            description="Ajusta categorias, limites minimos y reglas operativas."
+          />
+        )}
+      </section>
+
+      {isModalOpen && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Agregar nuevo producto"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+            <ProductForm
+              onProductCreated={loadProducts}
+              onClose={() => setIsModalOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

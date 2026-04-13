@@ -1,38 +1,35 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
 * {
   box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  color: #1b2430;
-  background: radial-gradient(circle at top, #ffffff, #f4f6f8);
-  line-height: 1.5;
-}
-
-#root {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
 html,
 body,
 #root {
-  height: 100%;
-}
-
-/* Global resets */
-h1, h2, h3, h4, h5, h6 {
   margin: 0;
-  font-weight: 600;
+  min-height: 100%;
 }
 
+body {
+  font-family: "Inter", "Roboto", "Segoe UI", sans-serif;
+  color: #1a2433;
+  background: #f7f8fa;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
 p {
   margin: 0;
 }
 
-button {
-  font-family: inherit;
-  font-size: inherit;
+button,
+input,
+select {
+  font: inherit;
 }

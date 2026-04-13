@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createProduct } from "../api.js";
 
-export function ProductForm({ onProductCreated }) {
+export function ProductForm({ onProductCreated, onClose }) {
   const [formData, setFormData] = useState({
     name: "",
     category: "food",
@@ -41,6 +41,9 @@ export function ProductForm({ onProductCreated }) {
       });
       setMessage("Producto guardado");
       onProductCreated();
+      if (onClose) {
+        onClose();
+      }
     } catch (error) {
       setMessage(error.message);
       setIsError(true);
@@ -48,8 +51,13 @@ export function ProductForm({ onProductCreated }) {
   };
 
   return (
-    <section className="panel">
-      <h2>Nuevo producto</h2>
+    <section className="panel modal-form-panel">
+      <div className="modal-form-header">
+        <h2>Nuevo producto</h2>
+        <button className="btn btn-outline" type="button" onClick={onClose}>
+          Cerrar
+        </button>
+      </div>
       <form onSubmit={handleSubmit} className="form-grid">
         <label>
           Nombre
