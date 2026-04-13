@@ -1,0 +1,185 @@
+/* Tailwind-like utility styles for Home Manager Inventory */
+
+.app-header {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  background: linear-gradient(120deg, #0d47a1, #1f6feb);
+  color: #fff;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.app-header p {
+  margin: 0.3rem 0 0;
+  opacity: 0.9;
+}
+
+.layout {
+  max-width: 1040px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 1rem;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 10px 28px rgba(27, 36, 48, 0.06);
+}
+
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.panel h2,
+.product-card h3 {
+  margin: 0 0 1rem;
+  color: #1b2430;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+label {
+  font-size: 0.9rem;
+  color: #5d6b82;
+  display: grid;
+  gap: 0.35rem;
+}
+
+input,
+select {
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid #1f6feb;
+  outline-offset: 1px;
+}
+
+.products {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.product-card {
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 0.8rem;
+  background: #fff;
+}
+
+.product-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.meta {
+  margin: 0.35rem 0;
+  color: #5d6b82;
+  font-size: 0.9rem;
+}
+
+.badge {
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  background: #f4f6f8;
+}
+
+.low-stock {
+  border-color: #ffd8d8 !important;
+  color: #d73a49;
+  background: #fff3f3;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.actions:last-child {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  transition: opacity 0.2s;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn-primary { background: #1f6feb; color: #fff; }
+.btn-danger { background: #d73a49; color: #fff; }
+.btn-success { background: #238636; color: #fff; }
+.btn-warning { background: #f6c343; color: #1f2933; }
+.btn-secondary { background: #dbe7ff; color: #09326c; }
+
+.btn-outline {
+  background: #fff;
+  color: #334155;
+  border: 1px solid #d0d7de;
+}
+
+.edit-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f4f6f8;
+  border-radius: 8px;
+}
+
+.message {
+  min-height: 1.2rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: #18632f;
+}
+
+.message.error {
+  color: #d73a49;
+}
+
+@media (max-width: 680px) {
+  .actions,
+  .actions:last-child {
+    grid-template-columns: 1fr;
+  }
+  
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
