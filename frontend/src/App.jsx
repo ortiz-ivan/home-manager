@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import { ProductForm } from "./components/ProductForm.jsx";
 import { ProductList } from "./components/ProductList.jsx";
-import { listProducts } from "./api.js";
+import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
+import { getMonthlyFinanceSummary, listIncomes, listProducts } from "./api.js";
+import { CATEGORY_LABELS, CATEGORY_VALUES } from "./constants/inventory.js";
 
 const MODULES = [
   { key: "dashboard", label: "Dashboard" },
@@ -12,18 +14,30 @@ const MODULES = [
   { key: "settings", label: "Categorias y Configuracion" },
 ];
 
-const CATEGORY_LABELS = {
-  food: "Alimentos",
-  cleaning: "Limpieza",
-  hygiene: "Higiene",
-  home: "Hogar",
-};
-
 const CATEGORY_UNIT_COST = {
   food: 4.8,
   cleaning: 6.2,
   hygiene: 5.1,
   home: 7.4,
+  mobility: 8.1,
+  maintenance: 10.5,
+  subscription: 9.5,
+  services: 12,
+  assets: 11.6,
+  leisure: 7.9,
+};
+
+const CATEGORY_COLOR_MAP = {
+  food: "#3f8efc",
+  cleaning: "#38b67a",
+  hygiene: "#f5a524",
+  home: "#ef5f6c",
+  mobility: "#6f6cf5",
+  maintenance: "#00a39a",
+  subscription: "#f06f9b",
+  services: "#2f9bd8",
+  assets: "#c9861e",
+  leisure: "#8673f2",
 };
 
 const FREQUENCY_WEIGHT = {
@@ -50,6 +64,14 @@ function daysBetween(dateString) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function formatGuarani(value) {
+  return new Intl.NumberFormat("es-PY", {
+    style: "currency",
+    currency: "PYG",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
+}
+
 function DashboardView({
   products,
   filteredProducts,
@@ -57,28 +79,24 @@ function DashboardView({
   criticalItems,
   expiringSoon,
   monthlySpendEstimate,
+  financeSummary,
   totalStockUnits,
   categoryDistribution,
 }) {
   const categoryTotal = Object.values(categoryDistribution).reduce((acc, value) => acc + value, 0);
-  const pieStops = ["food", "cleaning", "hygiene", "home"].reduce(
+  const pieStops = Object.keys(categoryDistribution).reduce(
     (acc, key) => {
       const value = categoryDistribution[key] || 0;
       const ratio = categoryTotal > 0 ? (value / categoryTotal) * 100 : 0;
       const nextStop = acc.stop + ratio;
-      acc.segments.push(`${acc.colorMap[key]} ${acc.stop}% ${nextStop}%`);
+      acc.segments.push(`${acc.colorMap[key] || "#b4bfd1"} ${acc.stop}% ${nextStop}%`);
       acc.stop = nextStop;
       return acc;
     },
     {
       stop: 0,
       segments: [],
-      colorMap: {
-        food: "#3f8efc",
-        cleaning: "#38b67a",
-        hygiene: "#f5a524",
-        home: "#ef5f6c",
-      },
+      colorMap: CATEGORY_COLOR_MAP,
     }
   );
 
@@ -128,7 +146,7 @@ function DashboardView({
       <div className="kpi-grid">
         <article className="kpi-card">
           <p>Gasto mensual estimado</p>
-          <h3>${monthlySpendEstimate.toFixed(2)}</h3>
+          <h3>{formatGuarani(monthlySpendEstimate)}</h3>
           <small>Estimacion basada en categoria y frecuencia de uso.</small>
         </article>
 
@@ -142,6 +160,16 @@ function DashboardView({
           <p>Productos gestionados</p>
           <h3>{products.length}</h3>
           <small>{filteredProducts.length} visibles con filtros activos.</small>
+        </article>
+
+        <article className="kpi-card">
+          <p>Gasto sobre ingreso mensual</p>
+          <h3>
+            {financeSummary.expense_percentage === null
+              ? "Sin ingresos"
+              : `${financeSummary.expense_percentage}%`}
+          </h3>
+          <small>Saldo: {formatGuarani(financeSummary.remaining_balance)}</small>
         </article>
       </div>
 
@@ -227,6 +255,15 @@ function PlaceholderModule({ title, description }) {
 function App() {
   const [route, setRoute] = useState("dashboard");
   const [products, setProducts] = useState([]);
+  const [incomes, setIncomes] = useState([]);
+  const [financeSummary, setFinanceSummary] = useState({
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    total_income: 0,
+    estimated_expenses: 0,
+    expense_percentage: null,
+    remaining_balance: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -249,8 +286,29 @@ function App() {
     }
   };
 
+  const loadFinanceData = async () => {
+    try {
+      const [incomeData, summaryData] = await Promise.all([
+        listIncomes(),
+        getMonthlyFinanceSummary(),
+      ]);
+
+      setIncomes(incomeData || []);
+      if (summaryData) {
+        setFinanceSummary(summaryData);
+      }
+    } catch (error) {
+      console.error("Error loading finance data:", error);
+      setIncomes([]);
+    }
+  };
+
+  const refreshAllData = async () => {
+    await Promise.all([loadProducts(), loadFinanceData()]);
+  };
+
   useEffect(() => {
-    loadProducts();
+    refreshAllData();
   }, []);
 
   useEffect(() => {
@@ -286,15 +344,18 @@ function App() {
     (product) => product.stock <= product.stock_min && product.usage_frequency === "high"
   );
   const expiringSoon = products.filter((product) => {
-    const remaining = daysBetween(product.expiry_date);
+    const remaining = daysBetween(product.next_due_date);
     return remaining !== null && remaining >= 0 && remaining <= 14;
   });
 
   const totalStockUnits = products.reduce((acc, product) => acc + Number(product.stock || 0), 0);
   const monthlySpendEstimate = products.reduce((acc, product) => {
-    const baseCost = CATEGORY_UNIT_COST[product.category] || 4;
+    const fallbackCost = CATEGORY_UNIT_COST[product.category] || 4;
+    const explicitPrice = Number(product.price);
+    const baseCost = Number.isNaN(explicitPrice) || explicitPrice <= 0 ? fallbackCost : explicitPrice;
     const frequency = FREQUENCY_WEIGHT[product.usage_frequency] || 1;
-    return acc + Number(product.stock_min || 0) * baseCost * frequency;
+    const projectedUnits = product.type === "consumable" ? Number(product.stock_min || 1) : 1;
+    return acc + projectedUnits * baseCost * frequency;
   }, 0);
 
   const categoryDistribution = products.reduce(
@@ -304,7 +365,10 @@ function App() {
       }
       return acc;
     },
-    { food: 0, cleaning: 0, hygiene: 0, home: 0 }
+    CATEGORY_VALUES.reduce((seed, category) => {
+      seed[category] = 0;
+      return seed;
+    }, {})
   );
 
   const currentModuleLabel = MODULES.find((module) => module.key === route)?.label || "Dashboard";
@@ -365,6 +429,7 @@ function App() {
             criticalItems={criticalItems}
             expiringSoon={expiringSoon}
             monthlySpendEstimate={monthlySpendEstimate}
+            financeSummary={financeSummary}
             totalStockUnits={totalStockUnits}
             categoryDistribution={categoryDistribution}
           />
@@ -381,8 +446,8 @@ function App() {
             <ProductList
               products={filteredProducts}
               loading={loading}
-              onUpdate={loadProducts}
-              onDelete={loadProducts}
+              onUpdate={refreshAllData}
+              onDelete={refreshAllData}
             />
           </section>
         )}
@@ -395,9 +460,10 @@ function App() {
         )}
 
         {route === "expenses" && (
-          <PlaceholderModule
-            title="Gastos"
-            description="Analiza la evolucion del gasto mensual por categoria."
+          <ExpensesPanel
+            incomes={incomes}
+            summary={financeSummary}
+            onDataChanged={refreshAllData}
           />
         )}
 
@@ -419,7 +485,7 @@ function App() {
         >
           <div className="modal-content" onClick={(event) => event.stopPropagation()}>
             <ProductForm
-              onProductCreated={loadProducts}
+              onProductCreated={refreshAllData}
               onClose={() => setIsModalOpen(false)}
             />
           </div>

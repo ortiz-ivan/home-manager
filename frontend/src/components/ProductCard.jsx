@@ -3,22 +3,35 @@ import {
   consumeProduct,
   buyProduct,
   markOutOfStock,
+  payProduct,
   updateProduct,
   deleteProduct,
 } from "../api.js";
+import {
+  CATEGORY_LABELS,
+  CATEGORY_OPTIONS,
+  FREQUENCY_LABELS,
+  FREQUENCY_OPTIONS,
+  TYPE_LABELS,
+  TYPE_OPTIONS,
+} from "../constants/inventory.js";
 
-const CATEGORY_LABELS = {
-  food: "Alimentos",
-  cleaning: "Limpieza",
-  hygiene: "Higiene",
-  home: "Hogar",
-};
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === "") {
+    return "sin dato";
+  }
 
-const FREQUENCY_LABELS = {
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
+  const amount = Number(value);
+  if (Number.isNaN(amount)) {
+    return "sin dato";
+  }
+
+  return new Intl.NumberFormat("es-PY", {
+    style: "currency",
+    currency: "PYG",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 export function ProductCard({ product, onUpdate, onDelete }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -45,6 +58,8 @@ export function ProductCard({ product, onUpdate, onDelete }) {
         await buyProduct(product.id, 1);
       } else if (action === "out_of_stock") {
         await markOutOfStock(product.id);
+      } else if (action === "pay") {
+        await payProduct(product.id);
       }
       onUpdate();
     } catch (error) {
@@ -83,7 +98,10 @@ export function ProductCard({ product, onUpdate, onDelete }) {
 
   const category = CATEGORY_LABELS[product.category] || product.category;
   const frequency = FREQUENCY_LABELS[product.usage_frequency] || product.usage_frequency;
+  const type = TYPE_LABELS[product.type] || product.type;
   const isLowStock = product.stock <= product.stock_min;
+  const isConsumable = product.type === "consumable";
+  const canPay = product.type === "service" || product.type === "subscription";
 
   return (
     <article className="product-card">
@@ -97,7 +115,11 @@ export function ProductCard({ product, onUpdate, onDelete }) {
           </div>
 
           <p className="meta">
-            {category} | Min: {product.stock_min} {product.unit} | Frecuencia: {frequency}
+            {category} | Tipo: {type} | Frecuencia: {frequency}
+          </p>
+
+          <p className="meta">
+            Min: {product.stock_min} {product.unit} | Precio: {formatCurrency(product.price)}
           </p>
 
           <p className="meta">
@@ -105,31 +127,44 @@ export function ProductCard({ product, onUpdate, onDelete }) {
           </p>
 
           <p className="meta">
-            Vencimiento: {product.expiry_date || "sin dato"}
+            Proximo vencimiento: {product.next_due_date || "sin dato"}
           </p>
 
           <div className="actions">
-            <button
-              className="btn btn-danger"
-              type="button"
-              onClick={() => handleQuickAction("consume")}
-            >
-              Consumir
-            </button>
-            <button
-              className="btn btn-success"
-              type="button"
-              onClick={() => handleQuickAction("buy")}
-            >
-              Comprar
-            </button>
-            <button
-              className="btn btn-warning"
-              type="button"
-              onClick={() => handleQuickAction("out_of_stock")}
-            >
-              Marcar agotado
-            </button>
+            {isConsumable && (
+              <>
+                <button
+                  className="btn btn-danger"
+                  type="button"
+                  onClick={() => handleQuickAction("consume")}
+                >
+                  Consumir
+                </button>
+                <button
+                  className="btn btn-success"
+                  type="button"
+                  onClick={() => handleQuickAction("buy")}
+                >
+                  Comprar
+                </button>
+                <button
+                  className="btn btn-warning"
+                  type="button"
+                  onClick={() => handleQuickAction("out_of_stock")}
+                >
+                  Marcar agotado
+                </button>
+              </>
+            )}
+            {canPay && (
+              <button
+                className="btn btn-success"
+                type="button"
+                onClick={() => handleQuickAction("pay")}
+              >
+                Registrar pago
+              </button>
+            )}
           </div>
 
           <div className="actions">
@@ -171,10 +206,27 @@ export function ProductCard({ product, onUpdate, onDelete }) {
               value={editData.category}
               onChange={handleEditChange}
             >
-              <option value="food">Alimentos</option>
-              <option value="cleaning">Limpieza</option>
-              <option value="hygiene">Higiene</option>
-              <option value="home">Hogar</option>
+              {CATEGORY_OPTIONS.map((categoryOption) => (
+                <option key={categoryOption.value} value={categoryOption.value}>
+                  {categoryOption.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Tipo
+            <select
+              name="type"
+              required
+              value={editData.type}
+              onChange={handleEditChange}
+            >
+              {TYPE_OPTIONS.map((typeOption) => (
+                <option key={typeOption.value} value={typeOption.value}>
+                  {typeOption.label}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -222,10 +274,24 @@ export function ProductCard({ product, onUpdate, onDelete }) {
               value={editData.usage_frequency}
               onChange={handleEditChange}
             >
-              <option value="high">Alta</option>
-              <option value="medium">Media</option>
-              <option value="low">Baja</option>
+              {FREQUENCY_OPTIONS.map((frequencyOption) => (
+                <option key={frequencyOption.value} value={frequencyOption.value}>
+                  {frequencyOption.label}
+                </option>
+              ))}
             </select>
+          </label>
+
+          <label>
+            Precio
+            <input
+              name="price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={editData.price ?? ""}
+              onChange={handleEditChange}
+            />
           </label>
 
           <label>
@@ -234,6 +300,16 @@ export function ProductCard({ product, onUpdate, onDelete }) {
               name="last_purchase"
               type="date"
               value={editData.last_purchase || ""}
+              onChange={handleEditChange}
+            />
+          </label>
+
+          <label>
+            Proximo vencimiento
+            <input
+              name="next_due_date"
+              type="date"
+              value={editData.next_due_date || ""}
               onChange={handleEditChange}
             />
           </label>

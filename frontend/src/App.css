@@ -531,6 +531,46 @@ select:focus {
   margin: 0;
 }
 
+.finance-kpi-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.income-list {
+  display: grid;
+  gap: 10px;
+}
+
+.income-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.income-row p,
+.income-row small {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.income-row p {
+  margin-top: 4px;
+}
+
+.income-row small {
+  display: block;
+  margin-top: 2px;
+}
+
 .message {
   margin-top: 8px;
   font-size: 0.9rem;
@@ -592,6 +632,10 @@ select:focus {
 
   .alerts-grid,
   .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,16 +1,26 @@
 import { useState } from "react";
 import { createProduct } from "../api.js";
+import {
+  CATEGORY_OPTIONS,
+  FREQUENCY_OPTIONS,
+  TYPE_OPTIONS,
+} from "../constants/inventory.js";
+
+const INITIAL_FORM_DATA = {
+  name: "",
+  category: "food",
+  type: "consumable",
+  stock: 0,
+  stock_min: 1,
+  unit: "unidad",
+  price: "",
+  usage_frequency: "medium",
+  last_purchase: "",
+  next_due_date: "",
+};
 
 export function ProductForm({ onProductCreated, onClose }) {
-  const [formData, setFormData] = useState({
-    name: "",
-    category: "food",
-    stock: 0,
-    stock_min: 1,
-    unit: "unidad",
-    usage_frequency: "medium",
-    last_purchase: "",
-  });
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
 
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -19,7 +29,12 @@ export function ProductForm({ onProductCreated, onClose }) {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "stock" || name === "stock_min" ? Number(value) : value,
+      [name]:
+        name === "stock" || name === "stock_min"
+          ? Number(value)
+          : name === "price"
+            ? value
+            : value,
     }));
   };
 
@@ -29,16 +44,12 @@ export function ProductForm({ onProductCreated, onClose }) {
     setIsError(false);
 
     try {
-      await createProduct(formData);
-      setFormData({
-        name: "",
-        category: "food",
-        stock: 0,
-        stock_min: 1,
-        unit: "unidad",
-        usage_frequency: "medium",
-        last_purchase: "",
-      });
+      const payload = {
+        ...formData,
+        price: formData.price === "" ? null : Number(formData.price),
+      };
+      await createProduct(payload);
+      setFormData(INITIAL_FORM_DATA);
       setMessage("Producto guardado");
       onProductCreated();
       if (onClose) {
@@ -79,10 +90,27 @@ export function ProductForm({ onProductCreated, onClose }) {
             value={formData.category}
             onChange={handleChange}
           >
-            <option value="food">Alimentos</option>
-            <option value="cleaning">Limpieza</option>
-            <option value="hygiene">Higiene</option>
-            <option value="home">Hogar</option>
+            {CATEGORY_OPTIONS.map((category) => (
+              <option key={category.value} value={category.value}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Tipo
+          <select
+            name="type"
+            required
+            value={formData.type}
+            onChange={handleChange}
+          >
+            {TYPE_OPTIONS.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
           </select>
         </label>
 
@@ -130,10 +158,25 @@ export function ProductForm({ onProductCreated, onClose }) {
             value={formData.usage_frequency}
             onChange={handleChange}
           >
-            <option value="high">Alta</option>
-            <option value="medium">Media</option>
-            <option value="low">Baja</option>
+            {FREQUENCY_OPTIONS.map((frequency) => (
+              <option key={frequency.value} value={frequency.value}>
+                {frequency.label}
+              </option>
+            ))}
           </select>
+        </label>
+
+        <label>
+          Precio
+          <input
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.price}
+            onChange={handleChange}
+            placeholder="Opcional"
+          />
         </label>
 
         <label>
@@ -142,6 +185,16 @@ export function ProductForm({ onProductCreated, onClose }) {
             name="last_purchase"
             type="date"
             value={formData.last_purchase}
+            onChange={handleChange}
+          />
+        </label>
+
+        <label>
+          Proximo vencimiento
+          <input
+            name="next_due_date"
+            type="date"
+            value={formData.next_due_date}
             onChange={handleChange}
           />
         </label>

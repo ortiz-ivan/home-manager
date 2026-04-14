@@ -64,3 +64,41 @@ export function markOutOfStock(id) {
     body: JSON.stringify({}),
   });
 }
+
+export function payProduct(id) {
+  return request(`${id}/pay/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function listIncomes() {
+  return request("incomes/");
+}
+
+export function createIncome(payload) {
+  return request("incomes/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteIncome(id) {
+  return request(`incomes/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function getMonthlyFinanceSummary(month, year) {
+  const query = new URLSearchParams();
+
+  if (month) {
+    query.set("month", String(month));
+  }
+  if (year) {
+    query.set("year", String(year));
+  }
+
+  const suffix = query.toString() ? `monthly-finance-summary/?${query.toString()}` : "monthly-finance-summary/";
+  return request(suffix);
+}

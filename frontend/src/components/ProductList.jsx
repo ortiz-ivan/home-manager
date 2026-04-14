@@ -1,12 +1,10 @@
 import { useMemo, useState } from "react";
 import { ProductCard } from "./ProductCard.jsx";
+import { CATEGORY_OPTIONS } from "../constants/inventory.js";
 
-const CATEGORY_OPTIONS = [
+const CATEGORY_FILTER_OPTIONS = [
   { value: "all", label: "Todas" },
-  { value: "food", label: "Alimentos" },
-  { value: "cleaning", label: "Limpieza" },
-  { value: "hygiene", label: "Higiene" },
-  { value: "home", label: "Hogar" },
+  ...CATEGORY_OPTIONS,
 ];
 
 export function ProductList({ products, loading, onUpdate, onDelete }) {
@@ -44,7 +42,7 @@ export function ProductList({ products, loading, onUpdate, onDelete }) {
       </div>
 
       <div className="inventory-controls">
-        {CATEGORY_OPTIONS.map((option) => (
+        {CATEGORY_FILTER_OPTIONS.map((option) => (
           <button
             key={option.value}
             type="button"
