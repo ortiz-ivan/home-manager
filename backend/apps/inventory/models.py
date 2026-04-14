@@ -25,6 +25,16 @@ class Product(models.Model):
         ("asset", "Activo"),
     ]
 
+    CATEGORY_TYPE_MAP = {
+        "mobility": "service",
+        "maintenance": "service",
+        "home": "service",
+        "leisure": "service",
+        "services": "service",
+        "subscription": "subscription",
+        "assets": "asset",
+    }
+
     USAGE_FREQUENCY_CHOICES = [
         ("high", "Alta"),
         ("medium", "Media"),
@@ -60,6 +70,10 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @classmethod
+    def get_type_for_category(cls, category: str) -> str:
+        return cls.CATEGORY_TYPE_MAP.get(category, "consumable")
+
     def __str__(self):
         return f"{self.name} ({self.category})"
 
@@ -76,3 +90,23 @@ class Income(models.Model):
 
     def __str__(self):
         return f"Ingreso {self.amount} ({self.date})"
+
+
+class VariableExpense(models.Model):
+    CATEGORY_CHOICES = [
+        ("mobility", "Movilidad"),
+        ("maintenance", "Mantenimiento"),
+    ]
+
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    description = models.CharField(max_length=120, blank=True)
+    notes = models.CharField(max_length=255, blank=True)
+    date = models.DateField(default=timezone.localdate)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"Gasto variable {self.amount} ({self.category})"

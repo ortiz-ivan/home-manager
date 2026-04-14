@@ -9,11 +9,11 @@ import {
 } from "../api.js";
 import {
   CATEGORY_LABELS,
-  CATEGORY_OPTIONS,
   FREQUENCY_LABELS,
   FREQUENCY_OPTIONS,
+  HOME_INVENTORY_CATEGORY_OPTIONS,
   TYPE_LABELS,
-  TYPE_OPTIONS,
+  getTypeForCategory,
 } from "../constants/inventory.js";
 
 function formatCurrency(value) {
@@ -43,6 +43,7 @@ export function ProductCard({ product, onUpdate, onDelete }) {
     const { name, value } = e.target;
     setEditData((prev) => ({
       ...prev,
+      ...(name === "category" ? { type: getTypeForCategory(value) } : {}),
       [name]: name === "stock" || name === "stock_min" ? Number(value) : value,
     }));
   };
@@ -86,7 +87,12 @@ export function ProductCard({ product, onUpdate, onDelete }) {
     setIsError(false);
 
     try {
-      await updateProduct(product.id, editData);
+      const payload = {
+        ...editData,
+        type: getTypeForCategory(editData.category),
+      };
+
+      await updateProduct(product.id, payload);
       setMessage("Producto actualizado");
       setIsEditing(false);
       onUpdate();
@@ -99,6 +105,7 @@ export function ProductCard({ product, onUpdate, onDelete }) {
   const category = CATEGORY_LABELS[product.category] || product.category;
   const frequency = FREQUENCY_LABELS[product.usage_frequency] || product.usage_frequency;
   const type = TYPE_LABELS[product.type] || product.type;
+  const editingType = TYPE_LABELS[getTypeForCategory(editData.category)] || editData.type;
   const isLowStock = product.stock <= product.stock_min;
   const isConsumable = product.type === "consumable";
   const canPay = product.type === "service" || product.type === "subscription";
@@ -206,7 +213,7 @@ export function ProductCard({ product, onUpdate, onDelete }) {
               value={editData.category}
               onChange={handleEditChange}
             >
-              {CATEGORY_OPTIONS.map((categoryOption) => (
+              {HOME_INVENTORY_CATEGORY_OPTIONS.map((categoryOption) => (
                 <option key={categoryOption.value} value={categoryOption.value}>
                   {categoryOption.label}
                 </option>
@@ -215,19 +222,8 @@ export function ProductCard({ product, onUpdate, onDelete }) {
           </label>
 
           <label>
-            Tipo
-            <select
-              name="type"
-              required
-              value={editData.type}
-              onChange={handleEditChange}
-            >
-              {TYPE_OPTIONS.map((typeOption) => (
-                <option key={typeOption.value} value={typeOption.value}>
-                  {typeOption.label}
-                </option>
-              ))}
-            </select>
+            Tipo (automatico)
+            <input type="text" value={editingType} readOnly />
           </label>
 
           <label>

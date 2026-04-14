@@ -519,6 +519,10 @@ select:focus {
   width: min(680px, 100%);
 }
 
+.modal-content.compact {
+  width: min(560px, 100%);
+}
+
 .modal-form-header {
   display: flex;
   align-items: center;
@@ -529,6 +533,24 @@ select:focus {
 
 .modal-form-panel {
   margin: 0;
+}
+
+.modal-form-panel.compact .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.modal-form-panel.compact .form-grid > button {
+  grid-column: 1 / -1;
+}
+
+.modal-form-panel.compact label {
+  font-size: 0.84rem;
+}
+
+.modal-form-panel.compact input,
+.modal-form-panel.compact select {
+  padding: 8px 9px;
 }
 
 .finance-kpi-grid {
@@ -653,5 +675,9 @@ select:focus {
   .pie-wrap {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .modal-form-panel.compact .form-grid {
+    grid-template-columns: 1fr;
   }
 }

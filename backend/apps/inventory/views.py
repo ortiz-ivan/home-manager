@@ -6,11 +6,12 @@ from rest_framework.views import APIView
 from django.db.models import Sum
 from django.utils import timezone
 
-from .models import Income, Product
+from .models import Income, Product, VariableExpense
 from .serializers import (
     IncomeSerializer,
     MonthlyFinanceSummarySerializer,
     ProductSerializer,
+    VariableExpenseSerializer,
 )
 from .services import (
     consume_product,
@@ -95,6 +96,11 @@ class IncomeViewSet(viewsets.ModelViewSet):
     serializer_class = IncomeSerializer
 
 
+class VariableExpenseViewSet(viewsets.ModelViewSet):
+    queryset = VariableExpense.objects.all()
+    serializer_class = VariableExpenseSerializer
+
+
 class MonthlyFinanceSummaryView(APIView):
     category_unit_cost = {
         "food": 4.8,
@@ -115,6 +121,9 @@ class MonthlyFinanceSummaryView(APIView):
         "low": 0.65,
     }
 
+    home_inventory_categories = {"food", "cleaning", "hygiene", "assets"}
+    fixed_expense_categories = {"services", "subscription", "home"}
+
     def get(self, request):
         today = timezone.localdate()
 
@@ -134,14 +143,27 @@ class MonthlyFinanceSummaryView(APIView):
             )
 
         products = Product.objects.all()
-        estimated_expenses = 0.0
+        home_estimated_expenses = 0.0
+        fixed_estimated_expenses = 0.0
 
         for product in products:
             fallback_cost = self.category_unit_cost.get(product.category, 4)
             base_cost = float(product.price) if product.price and product.price > 0 else fallback_cost
             frequency = self.frequency_weight.get(product.usage_frequency, 1)
             projected_units = product.stock_min if product.type == "consumable" else 1
-            estimated_expenses += projected_units * base_cost * frequency
+            estimate = projected_units * base_cost * frequency
+
+            if product.category in self.home_inventory_categories:
+                home_estimated_expenses += estimate
+            elif product.category in self.fixed_expense_categories:
+                fixed_estimated_expenses += estimate
+
+        variable_month_expenses = float(
+            VariableExpense.objects.filter(date__year=year, date__month=month).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        estimated_expenses = home_estimated_expenses + fixed_estimated_expenses + variable_month_expenses
 
         month_income = (
             Income.objects.filter(date__year=year, date__month=month).aggregate(total=Sum("amount"))["total"]
@@ -157,6 +179,9 @@ class MonthlyFinanceSummaryView(APIView):
             "month": month,
             "year": year,
             "total_income": round(total_income, 2),
+            "home_estimated_expenses": round(home_estimated_expenses, 2),
+            "fixed_estimated_expenses": round(fixed_estimated_expenses, 2),
+            "variable_expenses": round(variable_month_expenses, 2),
             "estimated_expenses": round(estimated_expenses, 2),
             "expense_percentage": round(expense_percentage, 2) if expense_percentage is not None else None,
             "remaining_balance": round(total_income - estimated_expenses, 2),

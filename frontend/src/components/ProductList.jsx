@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { ProductCard } from "./ProductCard.jsx";
-import { CATEGORY_OPTIONS } from "../constants/inventory.js";
+import { HOME_INVENTORY_CATEGORY_OPTIONS } from "../constants/inventory.js";
 
 const CATEGORY_FILTER_OPTIONS = [
   { value: "all", label: "Todas" },
-  ...CATEGORY_OPTIONS,
+  ...HOME_INVENTORY_CATEGORY_OPTIONS,
 ];
 
 export function ProductList({ products, loading, onUpdate, onDelete }) {

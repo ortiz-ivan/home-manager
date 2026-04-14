@@ -89,6 +89,23 @@ export function deleteIncome(id) {
   });
 }
 
+export function listVariableExpenses() {
+  return request("variable-expenses/");
+}
+
+export function createVariableExpense(payload) {
+  return request("variable-expenses/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteVariableExpense(id) {
+  return request(`variable-expenses/${id}/`, {
+    method: "DELETE",
+  });
+}
+
 export function getMonthlyFinanceSummary(month, year) {
   const query = new URLSearchParams();
 

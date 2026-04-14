@@ -3,8 +3,13 @@ import "./App.css";
 import { ProductForm } from "./components/ProductForm.jsx";
 import { ProductList } from "./components/ProductList.jsx";
 import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
-import { getMonthlyFinanceSummary, listIncomes, listProducts } from "./api.js";
-import { CATEGORY_LABELS, CATEGORY_VALUES } from "./constants/inventory.js";
+import { getMonthlyFinanceSummary, listIncomes, listProducts, listVariableExpenses } from "./api.js";
+import {
+  CATEGORY_LABELS,
+  FIXED_EXPENSE_CATEGORY_VALUES,
+  HOME_INVENTORY_CATEGORY_VALUES,
+  isHomeInventoryCategory,
+} from "./constants/inventory.js";
 
 const MODULES = [
   { key: "dashboard", label: "Dashboard" },
@@ -256,10 +261,14 @@ function App() {
   const [route, setRoute] = useState("dashboard");
   const [products, setProducts] = useState([]);
   const [incomes, setIncomes] = useState([]);
+  const [variableExpenses, setVariableExpenses] = useState([]);
   const [financeSummary, setFinanceSummary] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
     total_income: 0,
+    home_estimated_expenses: 0,
+    fixed_estimated_expenses: 0,
+    variable_expenses: 0,
     estimated_expenses: 0,
     expense_percentage: null,
     remaining_balance: 0,
@@ -288,18 +297,21 @@ function App() {
 
   const loadFinanceData = async () => {
     try {
-      const [incomeData, summaryData] = await Promise.all([
+      const [incomeData, variableExpenseData, summaryData] = await Promise.all([
         listIncomes(),
+        listVariableExpenses(),
         getMonthlyFinanceSummary(),
       ]);
 
       setIncomes(incomeData || []);
+      setVariableExpenses(variableExpenseData || []);
       if (summaryData) {
         setFinanceSummary(summaryData);
       }
     } catch (error) {
       console.error("Error loading finance data:", error);
       setIncomes([]);
+      setVariableExpenses([]);
     }
   };
 
@@ -325,7 +337,13 @@ function App() {
     return () => document.removeEventListener("keydown", handleEsc);
   }, [isModalOpen]);
 
-  const filteredProducts = products.filter((product) => {
+  const homeProducts = products.filter((product) => isHomeInventoryCategory(product.category));
+  const expenseProducts = products.filter((product) => !isHomeInventoryCategory(product.category));
+  const fixedExpenseProducts = expenseProducts.filter((product) =>
+    FIXED_EXPENSE_CATEGORY_VALUES.includes(product.category)
+  );
+
+  const filteredHomeProducts = homeProducts.filter((product) => {
     const category = CATEGORY_LABELS[product.category] || product.category;
     const query = searchQuery.trim().toLowerCase();
 
@@ -339,17 +357,17 @@ function App() {
     );
   });
 
-  const lowStockProducts = products.filter((product) => product.stock <= product.stock_min);
-  const criticalItems = products.filter(
+  const lowStockProducts = homeProducts.filter((product) => product.stock <= product.stock_min);
+  const criticalItems = homeProducts.filter(
     (product) => product.stock <= product.stock_min && product.usage_frequency === "high"
   );
-  const expiringSoon = products.filter((product) => {
+  const expiringSoon = homeProducts.filter((product) => {
     const remaining = daysBetween(product.next_due_date);
     return remaining !== null && remaining >= 0 && remaining <= 14;
   });
 
-  const totalStockUnits = products.reduce((acc, product) => acc + Number(product.stock || 0), 0);
-  const monthlySpendEstimate = products.reduce((acc, product) => {
+  const totalStockUnits = homeProducts.reduce((acc, product) => acc + Number(product.stock || 0), 0);
+  const monthlySpendEstimate = homeProducts.reduce((acc, product) => {
     const fallbackCost = CATEGORY_UNIT_COST[product.category] || 4;
     const explicitPrice = Number(product.price);
     const baseCost = Number.isNaN(explicitPrice) || explicitPrice <= 0 ? fallbackCost : explicitPrice;
@@ -358,14 +376,14 @@ function App() {
     return acc + projectedUnits * baseCost * frequency;
   }, 0);
 
-  const categoryDistribution = products.reduce(
+  const categoryDistribution = homeProducts.reduce(
     (acc, product) => {
       if (acc[product.category] !== undefined) {
         acc[product.category] += Number(product.stock || 0);
       }
       return acc;
     },
-    CATEGORY_VALUES.reduce((seed, category) => {
+    HOME_INVENTORY_CATEGORY_VALUES.reduce((seed, category) => {
       seed[category] = 0;
       return seed;
     }, {})
@@ -411,20 +429,22 @@ function App() {
               aria-label="Buscar en inventario"
             />
 
-            <button
-              className="btn btn-primary"
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-            >
-              Agregar producto
-            </button>
+            {route === "inventory" && (
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+              >
+                Agregar producto de hogar
+              </button>
+            )}
           </div>
         </header>
 
         {route === "dashboard" && (
           <DashboardView
-            products={products}
-            filteredProducts={filteredProducts}
+            products={homeProducts}
+            filteredProducts={filteredHomeProducts}
             lowStockProducts={lowStockProducts}
             criticalItems={criticalItems}
             expiringSoon={expiringSoon}
@@ -444,7 +464,7 @@ function App() {
               </p>
             </div>
             <ProductList
-              products={filteredProducts}
+              products={filteredHomeProducts}
               loading={loading}
               onUpdate={refreshAllData}
               onDelete={refreshAllData}
@@ -463,6 +483,8 @@ function App() {
           <ExpensesPanel
             incomes={incomes}
             summary={financeSummary}
+            expenseProducts={fixedExpenseProducts}
+            variableExpenses={variableExpenses}
             onDataChanged={refreshAllData}
           />
         )}
@@ -483,8 +505,9 @@ function App() {
           aria-label="Agregar nuevo producto"
           onClick={() => setIsModalOpen(false)}
         >
-          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
             <ProductForm
+              compact
               onProductCreated={refreshAllData}
               onClose={() => setIsModalOpen(false)}
             />
