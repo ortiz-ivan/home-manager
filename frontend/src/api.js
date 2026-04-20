@@ -89,6 +89,13 @@ export function deleteIncome(id) {
   });
 }
 
+export function updateIncome(id, payload) {
+  return request(`incomes/${id}/`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function listVariableExpenses() {
   return request("variable-expenses/");
 }
@@ -103,6 +110,13 @@ export function createVariableExpense(payload) {
 export function deleteVariableExpense(id) {
   return request(`variable-expenses/${id}/`, {
     method: "DELETE",
+  });
+}
+
+export function updateVariableExpense(id, payload) {
+  return request(`variable-expenses/${id}/`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
   });
 }
 

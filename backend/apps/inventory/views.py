@@ -22,7 +22,7 @@ from .services import (
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
+    queryset = Product.objects.all().prefetch_related("fixed_payments")
     serializer_class = ProductSerializer
 
 
@@ -92,13 +92,127 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 
 class IncomeViewSet(viewsets.ModelViewSet):
-    queryset = Income.objects.all()
+    queryset = Income.objects.all().order_by("-date", "-id")
     serializer_class = IncomeSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        if getattr(self, "action", None) != "list":
+            return queryset
+
+        today = timezone.localdate()
+
+        try:
+            month = int(self.request.query_params.get("month", today.month))
+            year = int(self.request.query_params.get("year", today.year))
+        except ValueError:
+            return queryset.none()
+
+        if month < 1 or month > 12:
+            return queryset.none()
+
+        return queryset.filter(date__year=year, date__month=month)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        validated_data = serializer.validated_data
+        date = validated_data.get("date") or timezone.localdate()
+        source = validated_data.get("source", "").strip()
+        notes = validated_data.get("notes", "").strip()
+
+        existing_income = None
+        if source:
+            existing_income = Income.objects.filter(
+                source__iexact=source,
+                date__year=date.year,
+                date__month=date.month,
+            ).order_by("-date", "-id").first()
+
+        if existing_income is not None:
+            existing_income.amount += validated_data["amount"]
+            existing_income.source = source
+            existing_income.date = max(existing_income.date, date)
+
+            if notes:
+                existing_income.notes = (
+                    f"{existing_income.notes} | {notes}"
+                    if existing_income.notes
+                    else notes
+                )
+
+            existing_income.save(update_fields=["amount", "source", "date", "notes"])
+            output_serializer = self.get_serializer(existing_income)
+            return Response(output_serializer.data, status=status.HTTP_200_OK)
+
+        instance = serializer.save(source=source, date=date, notes=notes)
+        output_serializer = self.get_serializer(instance)
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class VariableExpenseViewSet(viewsets.ModelViewSet):
-    queryset = VariableExpense.objects.all()
+    queryset = VariableExpense.objects.all().order_by("-date", "-id")
     serializer_class = VariableExpenseSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        if getattr(self, "action", None) != "list":
+            return queryset
+
+        today = timezone.localdate()
+
+        try:
+            month = int(self.request.query_params.get("month", today.month))
+            year = int(self.request.query_params.get("year", today.year))
+        except ValueError:
+            return queryset.none()
+
+        if month < 1 or month > 12:
+            return queryset.none()
+
+        return queryset.filter(date__year=year, date__month=month)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        validated_data = serializer.validated_data
+        date = validated_data.get("date") or timezone.localdate()
+        category = validated_data["category"]
+        description = validated_data.get("description", "").strip()
+        notes = validated_data.get("notes", "").strip()
+
+        existing_expense = VariableExpense.objects.filter(
+            category=category,
+            description__iexact=description,
+            date__year=date.year,
+            date__month=date.month,
+        ).order_by("-date", "-id").first()
+
+        if existing_expense is not None:
+            existing_expense.amount += validated_data["amount"]
+            existing_expense.date = max(existing_expense.date, date)
+            existing_expense.description = description
+
+            if notes:
+                existing_expense.notes = (
+                    f"{existing_expense.notes} | {notes}"
+                    if existing_expense.notes
+                    else notes
+                )
+
+            existing_expense.save(update_fields=["amount", "date", "description", "notes"])
+            output_serializer = self.get_serializer(existing_expense)
+            return Response(output_serializer.data, status=status.HTTP_200_OK)
+
+        instance = serializer.save(date=date, description=description, notes=notes)
+        output_serializer = self.get_serializer(instance)
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class MonthlyFinanceSummaryView(APIView):
@@ -147,16 +261,17 @@ class MonthlyFinanceSummaryView(APIView):
         fixed_estimated_expenses = 0.0
 
         for product in products:
-            fallback_cost = self.category_unit_cost.get(product.category, 4)
-            base_cost = float(product.price) if product.price and product.price > 0 else fallback_cost
-            frequency = self.frequency_weight.get(product.usage_frequency, 1)
-            projected_units = product.stock_min if product.type == "consumable" else 1
-            estimate = projected_units * base_cost * frequency
+            if product.category in self.fixed_expense_categories:
+                fixed_estimated_expenses += float(product.price or 0)
+                continue
 
             if product.category in self.home_inventory_categories:
+                fallback_cost = self.category_unit_cost.get(product.category, 4)
+                base_cost = float(product.price) if product.price and product.price > 0 else fallback_cost
+                frequency = self.frequency_weight.get(product.usage_frequency, 1)
+                projected_units = product.stock_min if product.type == "consumable" else 1
+                estimate = projected_units * base_cost * frequency
                 home_estimated_expenses += estimate
-            elif product.category in self.fixed_expense_categories:
-                fixed_estimated_expenses += estimate
 
         variable_month_expenses = float(
             VariableExpense.objects.filter(date__year=year, date__month=month).aggregate(total=Sum("amount"))["total"]

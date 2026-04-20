@@ -1,4 +1,6 @@
-from .models import Product
+import calendar
+
+from .models import FixedExpensePayment, Product
 from django.db import transaction
 from django.utils import timezone
 
@@ -59,25 +61,40 @@ def mark_product_out_of_stock(product_id: int):
             "product": product,
             "low_stock": True,
         }
-    
+
+
+def _add_one_month(target_date):
+    year = target_date.year + (1 if target_date.month == 12 else 0)
+    month = 1 if target_date.month == 12 else target_date.month + 1
+    day = min(target_date.day, calendar.monthrange(year, month)[1])
+    return target_date.replace(year=year, month=month, day=day)
+
 
 def register_payment(product_id: int):
     with transaction.atomic():
         product = Product.objects.select_for_update().get(id=product_id)
 
-        if product.type not in ["service", "subscription"]:
-            raise ValueError("Solo aplica a servicios o suscripciones")
+        if product.category not in ["services", "subscription", "home"]:
+            raise ValueError("Solo aplica a gastos fijos")
 
-        product.last_purchase = timezone.localdate()
+        today = timezone.localdate()
+        payment_period = today.replace(day=1)
+        payment_amount = product.price or 0
 
-        # lógica simple: próximo mes
+        payment, _ = FixedExpensePayment.objects.update_or_create(
+            product=product,
+            date=payment_period,
+            defaults={"amount": payment_amount},
+        )
+
+        product.last_purchase = today
+
         if product.next_due_date:
-            product.next_due_date = product.next_due_date.replace(
-                month=product.next_due_date.month % 12 + 1
-            )
+            product.next_due_date = _add_one_month(product.next_due_date)
 
         product.save()
 
         return {
-            "product": product
+            "product": product,
+            "payment": payment,
         }

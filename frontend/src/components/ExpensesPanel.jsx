@@ -4,53 +4,49 @@ import {
   createVariableExpense,
   deleteIncome,
   deleteVariableExpense,
+  payProduct,
+  updateIncome,
+  updateVariableExpense,
 } from "../api.js";
-import {
-  CATEGORY_LABELS,
-  TYPE_LABELS,
-  VARIABLE_EXPENSE_CATEGORY_OPTIONS,
-} from "../constants/inventory.js";
 import { ExpenseProductForm } from "./ExpenseProductForm.jsx";
-
-function formatGuarani(value) {
-  return new Intl.NumberFormat("es-PY", {
-    style: "currency",
-    currency: "PYG",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
-}
-
-function formatMonthYear(month, year) {
-  const date = new Date(year, month - 1, 1);
-  return new Intl.DateTimeFormat("es-PY", { month: "long", year: "numeric" }).format(date);
-}
-
-function toInputDate(date) {
-  return date.toISOString().slice(0, 10);
-}
+import { FinanceSummaryCards } from "./expenses/FinanceSummaryCards.jsx";
+import { FixedExpensesSection } from "./expenses/FixedExpensesSection.jsx";
+import { IncomeModal } from "./expenses/IncomeModal.jsx";
+import { IncomeSection } from "./expenses/IncomeSection.jsx";
+import { VariableExpenseModal } from "./expenses/VariableExpenseModal.jsx";
+import { VariableExpensesSection } from "./expenses/VariableExpensesSection.jsx";
+import {
+  createIncomeFormState,
+  createVariableExpenseFormState,
+  formatGuarani,
+  toInputDate,
+} from "./expenses/utils.js";
 
 export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpenses, onDataChanged }) {
   const today = useMemo(() => new Date(), []);
+  const todayInputDate = useMemo(() => toInputDate(today), [today]);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  const [isEditIncomeModalOpen, setIsEditIncomeModalOpen] = useState(false);
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    amount: "",
-    source: "",
-    notes: "",
-    date: toInputDate(today),
-  });
-  const [variableForm, setVariableForm] = useState({
-    amount: "",
-    category: "mobility",
-    description: "",
-    notes: "",
-    date: toInputDate(today),
-  });
+  const [isEditVariableModalOpen, setIsEditVariableModalOpen] = useState(false);
+  const [formData, setFormData] = useState(() => createIncomeFormState(todayInputDate));
+  const [variableForm, setVariableForm] = useState(() => createVariableExpenseFormState(todayInputDate));
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [variableMessage, setVariableMessage] = useState("");
   const [isVariableError, setIsVariableError] = useState(false);
+  const [fixedExpenseMessage, setFixedExpenseMessage] = useState("");
+  const [isFixedExpenseError, setIsFixedExpenseError] = useState(false);
+  const [payingExpenseId, setPayingExpenseId] = useState(null);
+  const [editingIncomeId, setEditingIncomeId] = useState(null);
+  const [editIncomeForm, setEditIncomeForm] = useState(() => createIncomeFormState(todayInputDate));
+  const [editIncomeMessage, setEditIncomeMessage] = useState("");
+  const [isEditIncomeError, setIsEditIncomeError] = useState(false);
+  const [editingVariableExpenseId, setEditingVariableExpenseId] = useState(null);
+  const [editVariableForm, setEditVariableForm] = useState(() => createVariableExpenseFormState(todayInputDate));
+  const [editVariableMessage, setEditVariableMessage] = useState("");
+  const [isEditVariableError, setIsEditVariableError] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -60,6 +56,16 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   const handleVariableChange = (event) => {
     const { name, value } = event.target;
     setVariableForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditIncomeChange = (event) => {
+    const { name, value } = event.target;
+    setEditIncomeForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditVariableChange = (event) => {
+    const { name, value } = event.target;
+    setEditVariableForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (event) => {
@@ -80,11 +86,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         amount,
       });
 
-      setFormData((prev) => ({
-        ...prev,
-        amount: "",
-        notes: "",
-      }));
+      setFormData(createIncomeFormState(todayInputDate));
       setMessage("Ingreso registrado");
       await onDataChanged();
       setIsIncomeModalOpen(false);
@@ -112,6 +114,45 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     }
   };
 
+  const handleEditIncome = (income) => {
+    setEditingIncomeId(income.id);
+    setEditIncomeForm({
+      amount: String(income.amount ?? ""),
+      source: income.source || "",
+      notes: income.notes || "",
+      date: income.date,
+    });
+    setEditIncomeMessage("");
+    setIsEditIncomeError(false);
+    setIsEditIncomeModalOpen(true);
+  };
+
+  const handleEditIncomeSubmit = async (event) => {
+    event.preventDefault();
+    setEditIncomeMessage("");
+    setIsEditIncomeError(false);
+
+    const amount = Number(editIncomeForm.amount);
+    if (Number.isNaN(amount) || amount <= 0) {
+      setEditIncomeMessage("El ingreso debe ser mayor a 0");
+      setIsEditIncomeError(true);
+      return;
+    }
+
+    try {
+      await updateIncome(editingIncomeId, {
+        ...editIncomeForm,
+        amount,
+      });
+      setEditIncomeMessage("Ingreso actualizado");
+      await onDataChanged();
+      setIsEditIncomeModalOpen(false);
+    } catch (error) {
+      setEditIncomeMessage(error.message);
+      setIsEditIncomeError(true);
+    }
+  };
+
   const handleVariableSubmit = async (event) => {
     event.preventDefault();
     setVariableMessage("");
@@ -129,12 +170,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         ...variableForm,
         amount,
       });
-      setVariableForm((prev) => ({
-        ...prev,
-        amount: "",
-        description: "",
-        notes: "",
-      }));
+      setVariableForm(createVariableExpenseFormState(todayInputDate));
       setVariableMessage("Gasto variable registrado");
       await onDataChanged();
       setIsVariableModalOpen(false);
@@ -144,9 +180,50 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     }
   };
 
+  const handleEditVariableExpense = (expense) => {
+    setEditingVariableExpenseId(expense.id);
+    setEditVariableForm({
+      amount: String(expense.amount ?? ""),
+      category: expense.category,
+      description: expense.description || "",
+      notes: expense.notes || "",
+      date: expense.date,
+    });
+    setEditVariableMessage("");
+    setIsEditVariableError(false);
+    setIsEditVariableModalOpen(true);
+  };
+
+  const handleEditVariableSubmit = async (event) => {
+    event.preventDefault();
+    setEditVariableMessage("");
+    setIsEditVariableError(false);
+
+    const amount = Number(editVariableForm.amount);
+    if (Number.isNaN(amount) || amount <= 0) {
+      setEditVariableMessage("El gasto debe ser mayor a 0");
+      setIsEditVariableError(true);
+      return;
+    }
+
+    try {
+      await updateVariableExpense(editingVariableExpenseId, {
+        ...editVariableForm,
+        amount,
+      });
+      setEditVariableMessage("Gasto variable actualizado");
+      await onDataChanged();
+      setIsEditVariableModalOpen(false);
+    } catch (error) {
+      setEditVariableMessage(error.message);
+      setIsEditVariableError(true);
+    }
+  };
+
   const openIncomeModal = () => {
     setMessage("");
     setIsError(false);
+    setFormData(createIncomeFormState(todayInputDate));
     setIsIncomeModalOpen(true);
   };
 
@@ -156,9 +233,17 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     setIsError(false);
   };
 
+  const closeEditIncomeModal = () => {
+    setIsEditIncomeModalOpen(false);
+    setEditingIncomeId(null);
+    setEditIncomeMessage("");
+    setIsEditIncomeError(false);
+  };
+
   const openVariableModal = () => {
     setVariableMessage("");
     setIsVariableError(false);
+    setVariableForm(createVariableExpenseFormState(todayInputDate));
     setIsVariableModalOpen(true);
   };
 
@@ -166,6 +251,13 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     setIsVariableModalOpen(false);
     setVariableMessage("");
     setIsVariableError(false);
+  };
+
+  const closeEditVariableModal = () => {
+    setIsEditVariableModalOpen(false);
+    setEditingVariableExpenseId(null);
+    setEditVariableMessage("");
+    setIsEditVariableError(false);
   };
 
   const handleDeleteVariableExpense = async (expense) => {
@@ -183,6 +275,23 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     } catch (error) {
       setVariableMessage(error.message);
       setIsVariableError(true);
+    }
+  };
+
+  const handlePayFixedExpense = async (expense) => {
+    setFixedExpenseMessage("");
+    setIsFixedExpenseError(false);
+    setPayingExpenseId(expense.id);
+
+    try {
+      await payProduct(expense.id);
+      setFixedExpenseMessage(`Pago registrado para ${expense.name}`);
+      await onDataChanged();
+    } catch (error) {
+      setFixedExpenseMessage(error.message);
+      setIsFixedExpenseError(true);
+    } finally {
+      setPayingExpenseId(null);
     }
   };
 
@@ -218,107 +327,24 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         </div>
       </div>
 
-      <div className="kpi-grid finance-kpi-grid">
-        <article className="kpi-card">
-          <p>Ingresos del mes</p>
-          <h3>{formatGuarani(summary.total_income)}</h3>
-          <small>{formatMonthYear(summary.month, summary.year)}</small>
-        </article>
-
-        <article className="kpi-card">
-          <p>Gasto mensual total</p>
-          <h3>{formatGuarani(summary.estimated_expenses)}</h3>
-          <small>
-            Hogar: {formatGuarani(summary.home_estimated_expenses || 0)} | Fijos: {formatGuarani(summary.fixed_estimated_expenses || 0)} | Variables del mes: {formatGuarani(summary.variable_expenses || 0)}
-          </small>
-        </article>
-
-        <article className="kpi-card">
-          <p>Porcentaje de gasto sobre ingreso</p>
-          <h3>{summary.expense_percentage === null ? "Sin ingresos" : `${summary.expense_percentage}%`}</h3>
-          <small>Saldo restante: {formatGuarani(summary.remaining_balance)}</small>
-        </article>
-      </div>
+      <FinanceSummaryCards summary={summary} />
 
       <div className="finance-grid">
-        <article className="panel">
-          <div className="panel-title">
-            <h3>Servicios y pagos fijos</h3>
-          </div>
+        <FixedExpensesSection
+          expenseProducts={expenseProducts}
+          fixedExpenseMessage={fixedExpenseMessage}
+          isFixedExpenseError={isFixedExpenseError}
+          payingExpenseId={payingExpenseId}
+          onPay={handlePayFixedExpense}
+        />
 
-          {expenseProducts.length === 0 ? (
-            <p>No hay servicios ni pagos registrados.</p>
-          ) : (
-            <div className="income-list">
-              {expenseProducts.map((item) => (
-                <div className="income-row" key={item.id}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <p>
-                      {CATEGORY_LABELS[item.category] || item.category} | {TYPE_LABELS[item.type] || item.type}
-                    </p>
-                    <small>Proximo vencimiento: {item.next_due_date || "sin fecha"}</small>
-                  </div>
-                  <strong>{formatGuarani(item.price)}</strong>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
+        <IncomeSection incomes={incomes} onEdit={handleEditIncome} onDelete={handleDelete} />
 
-        <article className="panel">
-          <div className="panel-title">
-            <h3>Ingresos registrados</h3>
-          </div>
-
-          {incomes.length === 0 ? (
-            <p>No hay ingresos cargados en este momento.</p>
-          ) : (
-            <div className="income-list">
-              {incomes.map((income) => (
-                <div className="income-row" key={income.id}>
-                  <div>
-                    <strong>{formatGuarani(income.amount)}</strong>
-                    <p>{income.source || "Sin fuente"}</p>
-                    <small>{income.date}</small>
-                  </div>
-                  <button className="btn btn-outline" type="button" onClick={() => handleDelete(income)}>
-                    Eliminar
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-
-        <article className="panel">
-          <div className="panel-title">
-            <h3>Gastos variables del mes</h3>
-          </div>
-
-          {variableExpenses.length === 0 ? (
-            <p>No hay gastos variables cargados.</p>
-          ) : (
-            <div className="income-list">
-              {variableExpenses.map((expense) => (
-                <div className="income-row" key={expense.id}>
-                  <div>
-                    <strong>{formatGuarani(expense.amount)}</strong>
-                    <p>{CATEGORY_LABELS[expense.category] || expense.category}</p>
-                    <small>{expense.date} {expense.description ? `| ${expense.description}` : ""}</small>
-                  </div>
-                  <button
-                    className="btn btn-outline"
-                    type="button"
-                    onClick={() => handleDeleteVariableExpense(expense)}
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
+        <VariableExpensesSection
+          variableExpenses={variableExpenses}
+          onEdit={handleEditVariableExpense}
+          onDelete={handleDeleteVariableExpense}
+        />
       </div>
 
       {isExpenseModalOpen && (
@@ -339,173 +365,57 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         </div>
       )}
 
-      {isIncomeModalOpen && (
-        <div
-          className="modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Agregar ingreso"
-          onClick={closeIncomeModal}
-        >
-          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
-            <section className="panel modal-form-panel compact">
-              <div className="modal-form-header">
-                <h2>Nuevo ingreso</h2>
-                <button className="btn btn-outline" type="button" onClick={closeIncomeModal}>
-                  Cerrar
-                </button>
-              </div>
+      <IncomeModal
+        isOpen={isIncomeModalOpen}
+        title="Nuevo ingreso"
+        ariaLabel="Agregar ingreso"
+        formData={formData}
+        onChange={handleChange}
+        onSubmit={handleSubmit}
+        onClose={closeIncomeModal}
+        message={message}
+        isError={isError}
+        submitLabel="Guardar ingreso"
+      />
 
-              <form onSubmit={handleSubmit} className="form-grid">
-                <label>
-                  Monto
-                  <input
-                    name="amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={formData.amount}
-                    onChange={handleChange}
-                  />
-                </label>
+      <VariableExpenseModal
+        isOpen={isVariableModalOpen}
+        title="Nuevo gasto variable"
+        ariaLabel="Agregar gasto variable"
+        formData={variableForm}
+        onChange={handleVariableChange}
+        onSubmit={handleVariableSubmit}
+        onClose={closeVariableModal}
+        message={variableMessage}
+        isError={isVariableError}
+        submitLabel="Guardar gasto"
+      />
 
-                <label>
-                  Fuente
-                  <input
-                    name="source"
-                    type="text"
-                    maxLength="120"
-                    value={formData.source}
-                    onChange={handleChange}
-                    placeholder="Salario, freelance, etc."
-                  />
-                </label>
+      <IncomeModal
+        isOpen={isEditIncomeModalOpen}
+        title="Editar ingreso"
+        ariaLabel="Editar ingreso"
+        formData={editIncomeForm}
+        onChange={handleEditIncomeChange}
+        onSubmit={handleEditIncomeSubmit}
+        onClose={closeEditIncomeModal}
+        message={editIncomeMessage}
+        isError={isEditIncomeError}
+        submitLabel="Guardar cambios"
+      />
 
-                <label>
-                  Fecha
-                  <input
-                    name="date"
-                    type="date"
-                    required
-                    value={formData.date}
-                    onChange={handleChange}
-                  />
-                </label>
-
-                <label>
-                  Nota
-                  <input
-                    name="notes"
-                    type="text"
-                    maxLength="255"
-                    value={formData.notes}
-                    onChange={handleChange}
-                  />
-                </label>
-
-                <button className="btn btn-primary" type="submit">
-                  Guardar ingreso
-                </button>
-              </form>
-
-              {message && <p className={`message ${isError ? "error" : ""}`}>{message}</p>}
-            </section>
-          </div>
-        </div>
-      )}
-
-      {isVariableModalOpen && (
-        <div
-          className="modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Agregar gasto variable"
-          onClick={closeVariableModal}
-        >
-          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
-            <section className="panel modal-form-panel compact">
-              <div className="modal-form-header">
-                <h2>Nuevo gasto variable</h2>
-                <button className="btn btn-outline" type="button" onClick={closeVariableModal}>
-                  Cerrar
-                </button>
-              </div>
-
-              <form onSubmit={handleVariableSubmit} className="form-grid">
-                <label>
-                  Monto
-                  <input
-                    name="amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={variableForm.amount}
-                    onChange={handleVariableChange}
-                  />
-                </label>
-
-                <label>
-                  Categoria
-                  <select
-                    name="category"
-                    required
-                    value={variableForm.category}
-                    onChange={handleVariableChange}
-                  >
-                    {VARIABLE_EXPENSE_CATEGORY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Descripcion
-                  <input
-                    name="description"
-                    type="text"
-                    maxLength="120"
-                    value={variableForm.description}
-                    onChange={handleVariableChange}
-                    placeholder="Combustible, taller, etc."
-                  />
-                </label>
-
-                <label>
-                  Fecha
-                  <input
-                    name="date"
-                    type="date"
-                    required
-                    value={variableForm.date}
-                    onChange={handleVariableChange}
-                  />
-                </label>
-
-                <label>
-                  Nota
-                  <input
-                    name="notes"
-                    type="text"
-                    maxLength="255"
-                    value={variableForm.notes}
-                    onChange={handleVariableChange}
-                  />
-                </label>
-
-                <button className="btn btn-primary" type="submit">
-                  Guardar gasto
-                </button>
-              </form>
-
-              {variableMessage && <p className={`message ${isVariableError ? "error" : ""}`}>{variableMessage}</p>}
-            </section>
-          </div>
-        </div>
-      )}
+      <VariableExpenseModal
+        isOpen={isEditVariableModalOpen}
+        title="Editar gasto variable"
+        ariaLabel="Editar gasto variable"
+        formData={editVariableForm}
+        onChange={handleEditVariableChange}
+        onSubmit={handleEditVariableSubmit}
+        onClose={closeEditVariableModal}
+        message={editVariableMessage}
+        isError={isEditVariableError}
+        submitLabel="Guardar cambios"
+      />
     </section>
   );
 }

@@ -612,6 +612,56 @@ select:focus {
   margin-top: 2px;
 }
 
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.fixed-expense-row {
+  align-items: flex-start;
+}
+
+.fixed-expense-details {
+  min-width: 0;
+}
+
+.fixed-expense-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.fixed-expense-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.status-chip {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
+.status-chip.paid {
+  color: #177446;
+  background: #ebfaf2;
+  border-color: #b2e6c8;
+}
+
+.status-chip.pending {
+  color: #9a6b1c;
+  background: #fff8ea;
+  border-color: #f2d493;
+}
+
 .message {
   margin-top: 8px;
   font-size: 0.9rem;
@@ -712,5 +762,23 @@ select:focus {
   .expenses-header-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .fixed-expense-row {
+    flex-direction: column;
+  }
+
+  .fixed-expense-side {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .row-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .row-actions .btn {
+    flex: 1 1 auto;
   }
 }

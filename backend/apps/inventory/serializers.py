@@ -1,8 +1,39 @@
 from rest_framework import serializers
+from django.utils import timezone
+
 from .models import Income, Product, VariableExpense
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    monthly_payment_status = serializers.SerializerMethodField()
+    monthly_payment_date = serializers.SerializerMethodField()
+
+    fixed_expense_categories = {"services", "subscription", "home"}
+
+    def _get_current_month_payment(self, obj):
+        if obj.category not in self.fixed_expense_categories:
+            return None
+
+        today = timezone.localdate()
+        prefetched_payments = getattr(obj, "_prefetched_objects_cache", {}).get("fixed_payments")
+
+        if prefetched_payments is not None:
+            for payment in prefetched_payments:
+                if payment.date.year == today.year and payment.date.month == today.month:
+                    return payment
+            return None
+
+        return obj.fixed_payments.filter(date__year=today.year, date__month=today.month).first()
+
+    def get_monthly_payment_status(self, obj):
+        if obj.category not in self.fixed_expense_categories:
+            return None
+        return "paid" if self._get_current_month_payment(obj) else "pending"
+
+    def get_monthly_payment_date(self, obj):
+        payment = self._get_current_month_payment(obj)
+        return payment.date.isoformat() if payment else None
+
     def validate(self, attrs):
         category = attrs.get("category")
 
