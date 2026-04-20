@@ -109,4 +109,20 @@ class VariableExpense(models.Model):
         ordering = ["-date", "-id"]
 
     def __str__(self):
+
         return f"Gasto variable {self.amount} ({self.category})"
+
+
+# Modelo para registrar pagos mensuales de gastos fijos
+class FixedExpensePayment(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="fixed_payments")
+    date = models.DateField(default=timezone.localdate)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("product", "date")
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"Pago fijo {self.product.name} - {self.date} - {self.amount}"

@@ -32,6 +32,8 @@ function toInputDate(date) {
 export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpenses, onDataChanged }) {
   const today = useMemo(() => new Date(), []);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  const [isVariableModalOpen, setIsVariableModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     amount: "",
     source: "",
@@ -85,6 +87,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       }));
       setMessage("Ingreso registrado");
       await onDataChanged();
+      setIsIncomeModalOpen(false);
     } catch (error) {
       setMessage(error.message);
       setIsError(true);
@@ -134,10 +137,35 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       }));
       setVariableMessage("Gasto variable registrado");
       await onDataChanged();
+      setIsVariableModalOpen(false);
     } catch (error) {
       setVariableMessage(error.message);
       setIsVariableError(true);
     }
+  };
+
+  const openIncomeModal = () => {
+    setMessage("");
+    setIsError(false);
+    setIsIncomeModalOpen(true);
+  };
+
+  const closeIncomeModal = () => {
+    setIsIncomeModalOpen(false);
+    setMessage("");
+    setIsError(false);
+  };
+
+  const openVariableModal = () => {
+    setVariableMessage("");
+    setIsVariableError(false);
+    setIsVariableModalOpen(true);
+  };
+
+  const closeVariableModal = () => {
+    setIsVariableModalOpen(false);
+    setVariableMessage("");
+    setIsVariableError(false);
   };
 
   const handleDeleteVariableExpense = async (expense) => {
@@ -160,16 +188,34 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
 
   return (
     <section className="module-content fade-in">
-      <div className="section-header">
-        <h2>Gastos vs ingresos</h2>
-        <p>Registra tus ingresos y revisa que porcentaje de tus gastos mensuales ocupan.</p>
-        <button
-          className="btn btn-primary"
-          type="button"
-          onClick={() => setIsExpenseModalOpen(true)}
-        >
-          Agregar gasto fijo
-        </button>
+      <div className="section-header expenses-header">
+        <div className="section-header-copy">
+          <h2>Gastos vs ingresos</h2>
+          <p>Registra tus ingresos y revisa que porcentaje de tus gastos mensuales ocupan.</p>
+        </div>
+        <div className="expenses-header-actions">
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => setIsExpenseModalOpen(true)}
+          >
+            Agregar gasto fijo
+          </button>
+          <button
+            className="btn btn-success"
+            type="button"
+            onClick={openIncomeModal}
+          >
+            Agregar ingreso
+          </button>
+          <button
+            className="btn btn-warning"
+            type="button"
+            onClick={openVariableModal}
+          >
+            Agregar gasto variable
+          </button>
+        </div>
       </div>
 
       <div className="kpi-grid finance-kpi-grid">
@@ -218,144 +264,6 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
               ))}
             </div>
           )}
-        </article>
-
-        <article className="panel">
-          <div className="panel-title">
-            <h3>Registrar ingreso</h3>
-          </div>
-
-          <form onSubmit={handleSubmit} className="form-grid">
-            <label>
-              Monto
-              <input
-                name="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={formData.amount}
-                onChange={handleChange}
-              />
-            </label>
-
-            <label>
-              Fuente
-              <input
-                name="source"
-                type="text"
-                maxLength="120"
-                value={formData.source}
-                onChange={handleChange}
-                placeholder="Salario, freelance, etc."
-              />
-            </label>
-
-            <label>
-              Fecha
-              <input
-                name="date"
-                type="date"
-                required
-                value={formData.date}
-                onChange={handleChange}
-              />
-            </label>
-
-            <label>
-              Nota
-              <input
-                name="notes"
-                type="text"
-                maxLength="255"
-                value={formData.notes}
-                onChange={handleChange}
-              />
-            </label>
-
-            <button className="btn btn-primary" type="submit">
-              Guardar ingreso
-            </button>
-          </form>
-
-          {message && <p className={`message ${isError ? "error" : ""}`}>{message}</p>}
-        </article>
-
-        <article className="panel">
-          <div className="panel-title">
-            <h3>Registrar gasto variable</h3>
-          </div>
-
-          <form onSubmit={handleVariableSubmit} className="form-grid">
-            <label>
-              Monto
-              <input
-                name="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={variableForm.amount}
-                onChange={handleVariableChange}
-              />
-            </label>
-
-            <label>
-              Categoria
-              <select
-                name="category"
-                required
-                value={variableForm.category}
-                onChange={handleVariableChange}
-              >
-                {VARIABLE_EXPENSE_CATEGORY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Descripcion
-              <input
-                name="description"
-                type="text"
-                maxLength="120"
-                value={variableForm.description}
-                onChange={handleVariableChange}
-                placeholder="Combustible, taller, etc."
-              />
-            </label>
-
-            <label>
-              Fecha
-              <input
-                name="date"
-                type="date"
-                required
-                value={variableForm.date}
-                onChange={handleVariableChange}
-              />
-            </label>
-
-            <label>
-              Nota
-              <input
-                name="notes"
-                type="text"
-                maxLength="255"
-                value={variableForm.notes}
-                onChange={handleVariableChange}
-              />
-            </label>
-
-            <button className="btn btn-primary" type="submit">
-              Guardar gasto
-            </button>
-          </form>
-
-          {variableMessage && <p className={`message ${isVariableError ? "error" : ""}`}>{variableMessage}</p>}
         </article>
 
         <article className="panel">
@@ -427,6 +335,174 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
               onExpenseCreated={onDataChanged}
               onClose={() => setIsExpenseModalOpen(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {isIncomeModalOpen && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Agregar ingreso"
+          onClick={closeIncomeModal}
+        >
+          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
+            <section className="panel modal-form-panel compact">
+              <div className="modal-form-header">
+                <h2>Nuevo ingreso</h2>
+                <button className="btn btn-outline" type="button" onClick={closeIncomeModal}>
+                  Cerrar
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="form-grid">
+                <label>
+                  Monto
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={formData.amount}
+                    onChange={handleChange}
+                  />
+                </label>
+
+                <label>
+                  Fuente
+                  <input
+                    name="source"
+                    type="text"
+                    maxLength="120"
+                    value={formData.source}
+                    onChange={handleChange}
+                    placeholder="Salario, freelance, etc."
+                  />
+                </label>
+
+                <label>
+                  Fecha
+                  <input
+                    name="date"
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={handleChange}
+                  />
+                </label>
+
+                <label>
+                  Nota
+                  <input
+                    name="notes"
+                    type="text"
+                    maxLength="255"
+                    value={formData.notes}
+                    onChange={handleChange}
+                  />
+                </label>
+
+                <button className="btn btn-primary" type="submit">
+                  Guardar ingreso
+                </button>
+              </form>
+
+              {message && <p className={`message ${isError ? "error" : ""}`}>{message}</p>}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {isVariableModalOpen && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Agregar gasto variable"
+          onClick={closeVariableModal}
+        >
+          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
+            <section className="panel modal-form-panel compact">
+              <div className="modal-form-header">
+                <h2>Nuevo gasto variable</h2>
+                <button className="btn btn-outline" type="button" onClick={closeVariableModal}>
+                  Cerrar
+                </button>
+              </div>
+
+              <form onSubmit={handleVariableSubmit} className="form-grid">
+                <label>
+                  Monto
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={variableForm.amount}
+                    onChange={handleVariableChange}
+                  />
+                </label>
+
+                <label>
+                  Categoria
+                  <select
+                    name="category"
+                    required
+                    value={variableForm.category}
+                    onChange={handleVariableChange}
+                  >
+                    {VARIABLE_EXPENSE_CATEGORY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Descripcion
+                  <input
+                    name="description"
+                    type="text"
+                    maxLength="120"
+                    value={variableForm.description}
+                    onChange={handleVariableChange}
+                    placeholder="Combustible, taller, etc."
+                  />
+                </label>
+
+                <label>
+                  Fecha
+                  <input
+                    name="date"
+                    type="date"
+                    required
+                    value={variableForm.date}
+                    onChange={handleVariableChange}
+                  />
+                </label>
+
+                <label>
+                  Nota
+                  <input
+                    name="notes"
+                    type="text"
+                    maxLength="255"
+                    value={variableForm.notes}
+                    onChange={handleVariableChange}
+                  />
+                </label>
+
+                <button className="btn btn-primary" type="submit">
+                  Guardar gasto
+                </button>
+              </form>
+
+              {variableMessage && <p className={`message ${isVariableError ? "error" : ""}`}>{variableMessage}</p>}
+            </section>
           </div>
         </div>
       )}

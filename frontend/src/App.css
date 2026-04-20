@@ -134,6 +134,25 @@
   color: var(--text-soft);
 }
 
+.expenses-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-header-copy {
+  min-width: 0;
+}
+
+.expenses-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .fade-in {
   animation: fadeIn 220ms ease-out;
 }
@@ -660,6 +679,15 @@ select:focus {
   .finance-grid {
     grid-template-columns: 1fr;
   }
+
+  .expenses-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .expenses-header-actions {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 620px) {
@@ -679,5 +707,10 @@ select:focus {
 
   .modal-form-panel.compact .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .expenses-header-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
