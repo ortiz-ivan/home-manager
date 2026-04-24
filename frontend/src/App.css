@@ -246,6 +246,128 @@
   font-size: 1.62rem;
 }
 
+.budget-rule-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.budget-rule-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #fcfdff 0%, #f7f9fd 100%);
+}
+
+.budget-rule-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.budget-rule-head strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.budget-rule-head span:not(.budget-rule-status) {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.budget-rule-status {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.budget-rule-status.success {
+  color: #177446;
+  background: #ebfaf2;
+  border-color: #b2e6c8;
+}
+
+.budget-rule-status.warning {
+  color: #9a6b1c;
+  background: #fff8ea;
+  border-color: #f2d493;
+}
+
+.budget-rule-status.danger {
+  color: #b23c48;
+  background: #fff2f3;
+  border-color: #efbcc2;
+}
+
+.budget-rule-status.neutral {
+  color: #48607f;
+  background: #eef3fb;
+  border-color: #d3ddec;
+}
+
+.budget-rule-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e7edf7;
+  overflow: hidden;
+}
+
+.budget-rule-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 220ms ease;
+}
+
+.budget-rule-fill.success {
+  background: linear-gradient(90deg, #2ca874, #6fd39f);
+}
+
+.budget-rule-fill.warning {
+  background: linear-gradient(90deg, #e6a325, #f0c35d);
+}
+
+.budget-rule-fill.danger {
+  background: linear-gradient(90deg, #df5b67, #ef8a92);
+}
+
+.budget-rule-fill.neutral {
+  background: linear-gradient(90deg, #8ea2bf, #b9c8dc);
+}
+
+.budget-rule-values {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.budget-rule-values small {
+  margin: 0;
+}
+
+.budget-rule-delta.success {
+  color: #177446;
+}
+
+.budget-rule-delta.warning {
+  color: #9a6b1c;
+}
+
+.budget-rule-delta.danger {
+  color: #b23c48;
+}
+
+.budget-rule-delta.neutral {
+  color: #48607f;
+}
+
 .chart-panel {
   grid-column: span 1;
 }
@@ -757,6 +879,12 @@ select:focus {
 
   .modal-form-panel.compact .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .budget-rule-head,
+  .budget-rule-values {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .expenses-header-actions {
