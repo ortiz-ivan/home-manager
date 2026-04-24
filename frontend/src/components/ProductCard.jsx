@@ -8,11 +8,14 @@ import {
   deleteProduct,
 } from "../api.js";
 import {
+  BUDGET_BUCKET_LABELS,
+  BUDGET_BUCKET_OPTIONS,
   CATEGORY_LABELS,
   FREQUENCY_LABELS,
   FREQUENCY_OPTIONS,
   HOME_INVENTORY_CATEGORY_OPTIONS,
   TYPE_LABELS,
+  getBudgetBucketForCategory,
   getTypeForCategory,
 } from "../constants/inventory.js";
 
@@ -43,7 +46,12 @@ export function ProductCard({ product, onUpdate, onDelete }) {
     const { name, value } = e.target;
     setEditData((prev) => ({
       ...prev,
-      ...(name === "category" ? { type: getTypeForCategory(value) } : {}),
+      ...(name === "category"
+        ? {
+            type: getTypeForCategory(value),
+            budget_bucket: getBudgetBucketForCategory(value),
+          }
+        : {}),
       [name]: name === "stock" || name === "stock_min" ? Number(value) : value,
     }));
   };
@@ -105,6 +113,7 @@ export function ProductCard({ product, onUpdate, onDelete }) {
   const category = CATEGORY_LABELS[product.category] || product.category;
   const frequency = FREQUENCY_LABELS[product.usage_frequency] || product.usage_frequency;
   const type = TYPE_LABELS[product.type] || product.type;
+  const budgetBucket = BUDGET_BUCKET_LABELS[product.budget_bucket] || product.budget_bucket;
   const editingType = TYPE_LABELS[getTypeForCategory(editData.category)] || editData.type;
   const isLowStock = product.stock <= product.stock_min;
   const isConsumable = product.type === "consumable";
@@ -124,6 +133,8 @@ export function ProductCard({ product, onUpdate, onDelete }) {
           <p className="meta">
             {category} | Tipo: {type} | Frecuencia: {frequency}
           </p>
+
+          <p className="meta">Bolsa: {budgetBucket}</p>
 
           <p className="meta">
             Min: {product.stock_min} {product.unit} | Precio: {formatCurrency(product.price)}
@@ -224,6 +235,22 @@ export function ProductCard({ product, onUpdate, onDelete }) {
           <label>
             Tipo (automatico)
             <input type="text" value={editingType} readOnly />
+          </label>
+
+          <label>
+            Bolsa 50-30-20
+            <select
+              name="budget_bucket"
+              required
+              value={editData.budget_bucket || getBudgetBucketForCategory(editData.category)}
+              onChange={handleEditChange}
+            >
+              {BUDGET_BUCKET_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label>

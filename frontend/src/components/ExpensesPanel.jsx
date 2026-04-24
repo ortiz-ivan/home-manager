@@ -21,6 +21,7 @@ import {
   formatGuarani,
   toInputDate,
 } from "./expenses/utils.js";
+import { getBudgetBucketForCategory } from "../constants/inventory.js";
 
 export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpenses, onDataChanged }) {
   const today = useMemo(() => new Date(), []);
@@ -30,6 +31,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   const [isEditIncomeModalOpen, setIsEditIncomeModalOpen] = useState(false);
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(false);
   const [isEditVariableModalOpen, setIsEditVariableModalOpen] = useState(false);
+  const [isEditFixedExpenseModalOpen, setIsEditFixedExpenseModalOpen] = useState(false);
   const [formData, setFormData] = useState(() => createIncomeFormState(todayInputDate));
   const [variableForm, setVariableForm] = useState(() => createVariableExpenseFormState(todayInputDate));
   const [message, setMessage] = useState("");
@@ -47,6 +49,8 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   const [editVariableForm, setEditVariableForm] = useState(() => createVariableExpenseFormState(todayInputDate));
   const [editVariableMessage, setEditVariableMessage] = useState("");
   const [isEditVariableError, setIsEditVariableError] = useState(false);
+  const [editingFixedExpenseId, setEditingFixedExpenseId] = useState(null);
+  const [editFixedExpenseForm, setEditFixedExpenseForm] = useState(null);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -55,7 +59,11 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
 
   const handleVariableChange = (event) => {
     const { name, value } = event.target;
-    setVariableForm((prev) => ({ ...prev, [name]: value }));
+    setVariableForm((prev) => ({
+      ...prev,
+      ...(name === "category" ? { budget_bucket: getBudgetBucketForCategory(value) } : {}),
+      [name]: value,
+    }));
   };
 
   const handleEditIncomeChange = (event) => {
@@ -65,7 +73,11 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
 
   const handleEditVariableChange = (event) => {
     const { name, value } = event.target;
-    setEditVariableForm((prev) => ({ ...prev, [name]: value }));
+    setEditVariableForm((prev) => ({
+      ...prev,
+      ...(name === "category" ? { budget_bucket: getBudgetBucketForCategory(value) } : {}),
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -185,6 +197,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     setEditVariableForm({
       amount: String(expense.amount ?? ""),
       category: expense.category,
+      budget_bucket: expense.budget_bucket || getBudgetBucketForCategory(expense.category),
       description: expense.description || "",
       notes: expense.notes || "",
       date: expense.date,
@@ -258,6 +271,25 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     setEditingVariableExpenseId(null);
     setEditVariableMessage("");
     setIsEditVariableError(false);
+  };
+
+  const handleEditFixedExpense = (expense) => {
+    setEditingFixedExpenseId(expense.id);
+    setEditFixedExpenseForm({
+      name: expense.name,
+      category: expense.category,
+      budget_bucket: expense.budget_bucket || getBudgetBucketForCategory(expense.category),
+      price: expense.price ?? "",
+      usage_frequency: expense.usage_frequency,
+      next_due_date: expense.next_due_date || "",
+    });
+    setIsEditFixedExpenseModalOpen(true);
+  };
+
+  const closeEditFixedExpenseModal = () => {
+    setIsEditFixedExpenseModalOpen(false);
+    setEditingFixedExpenseId(null);
+    setEditFixedExpenseForm(null);
   };
 
   const handleDeleteVariableExpense = async (expense) => {
@@ -335,6 +367,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
           fixedExpenseMessage={fixedExpenseMessage}
           isFixedExpenseError={isFixedExpenseError}
           payingExpenseId={payingExpenseId}
+          onEdit={handleEditFixedExpense}
           onPay={handlePayFixedExpense}
         />
 
@@ -416,6 +449,31 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         isError={isEditVariableError}
         submitLabel="Guardar cambios"
       />
+
+      {isEditFixedExpenseModalOpen && editFixedExpenseForm && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Editar gasto fijo"
+          onClick={closeEditFixedExpenseModal}
+        >
+          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
+            <ExpenseProductForm
+              compact
+              expenseProductId={editingFixedExpenseId}
+              initialData={editFixedExpenseForm}
+              title="Editar gasto fijo"
+              submitLabel="Guardar cambios"
+              onExpenseCreated={async () => {
+                await onDataChanged();
+                closeEditFixedExpenseModal();
+              }}
+              onClose={closeEditFixedExpenseModal}
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

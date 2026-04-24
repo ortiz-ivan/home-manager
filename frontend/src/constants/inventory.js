@@ -46,8 +46,25 @@ export const CATEGORY_TYPE_MAP = {
   assets: "asset",
 };
 
+export const CATEGORY_BUDGET_BUCKET_MAP = {
+  food: "needs",
+  cleaning: "needs",
+  hygiene: "needs",
+  home: "needs",
+  mobility: "needs",
+  maintenance: "needs",
+  subscription: "wants",
+  services: "needs",
+  assets: "needs",
+  leisure: "wants",
+};
+
 export function getTypeForCategory(category) {
   return CATEGORY_TYPE_MAP[category] || "consumable";
+}
+
+export function getBudgetBucketForCategory(category) {
+  return CATEGORY_BUDGET_BUCKET_MAP[category] || "needs";
 }
 
 export const GROUPED_CATEGORY_OPTIONS = {
@@ -83,6 +100,17 @@ export const FREQUENCY_OPTIONS = [
   { value: "medium", label: "Media" },
   { value: "low", label: "Baja" },
 ];
+
+export const BUDGET_BUCKET_OPTIONS = [
+  { value: "needs", label: "Necesidades (50%)" },
+  { value: "wants", label: "Deseos (30%)" },
+  { value: "savings", label: "Ahorro / deuda (20%)" },
+];
+
+export const BUDGET_BUCKET_LABELS = BUDGET_BUCKET_OPTIONS.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
 
 export const FREQUENCY_LABELS = FREQUENCY_OPTIONS.reduce((acc, option) => {
   acc[option.value] = option.label;

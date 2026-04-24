@@ -1,3 +1,5 @@
+import { getBudgetBucketForCategory } from "../../constants/inventory.js";
+
 export function formatGuarani(value) {
   return new Intl.NumberFormat("es-PY", {
     style: "currency",
@@ -31,6 +33,7 @@ export function createVariableExpenseFormState(date) {
   return {
     amount: "",
     category: "mobility",
+    budget_bucket: getBudgetBucketForCategory("mobility"),
     description: "",
     notes: "",
     date,

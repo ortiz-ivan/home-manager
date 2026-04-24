@@ -55,6 +55,8 @@ class ProductSerializer(serializers.ModelSerializer):
             })
 
         attrs["type"] = expected_type
+        if not attrs.get("budget_bucket"):
+            attrs["budget_bucket"] = Product.get_budget_bucket_for_category(category)
         return attrs
 
     class Meta:
@@ -69,9 +71,35 @@ class IncomeSerializer(serializers.ModelSerializer):
 
 
 class VariableExpenseSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        category = attrs.get("category")
+
+        if category is None and self.instance is not None:
+            category = self.instance.category
+
+        if category is None:
+            return attrs
+
+        if not attrs.get("budget_bucket"):
+            attrs["budget_bucket"] = VariableExpense.get_budget_bucket_for_category(category)
+
+        return attrs
+
     class Meta:
         model = VariableExpense
         fields = "__all__"
+
+
+class BudgetBucketSummarySerializer(serializers.Serializer):
+    needs = serializers.FloatField()
+    wants = serializers.FloatField()
+    savings = serializers.FloatField()
+
+
+class BudgetRuleSummarySerializer(serializers.Serializer):
+    targets = BudgetBucketSummarySerializer()
+    actuals = BudgetBucketSummarySerializer()
+    variance = BudgetBucketSummarySerializer()
 
 
 class MonthlyFinanceSummarySerializer(serializers.Serializer):
@@ -84,3 +112,4 @@ class MonthlyFinanceSummarySerializer(serializers.Serializer):
     estimated_expenses = serializers.FloatField()
     expense_percentage = serializers.FloatField(allow_null=True)
     remaining_balance = serializers.FloatField()
+    rule_50_30_20 = BudgetRuleSummarySerializer()

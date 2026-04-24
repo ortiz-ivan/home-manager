@@ -1,30 +1,60 @@
-import { useState } from "react";
-import { createProduct } from "../api.js";
+import { useEffect, useState } from "react";
+import { createProduct, updateProduct } from "../api.js";
 import {
+  BUDGET_BUCKET_OPTIONS,
   FIXED_EXPENSE_CATEGORY_OPTIONS,
   FREQUENCY_OPTIONS,
   TYPE_LABELS,
+  getBudgetBucketForCategory,
   getTypeForCategory,
 } from "../constants/inventory.js";
 
 const INITIAL_FORM_DATA = {
   name: "",
   category: FIXED_EXPENSE_CATEGORY_OPTIONS[0]?.value || "services",
+  budget_bucket: getBudgetBucketForCategory(FIXED_EXPENSE_CATEGORY_OPTIONS[0]?.value || "services"),
   price: "",
   usage_frequency: "medium",
   next_due_date: "",
 };
 
-export function ExpenseProductForm({ onExpenseCreated, onClose, compact = true }) {
-  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+function normalizeFormData(initialData) {
+  return {
+    ...INITIAL_FORM_DATA,
+    ...initialData,
+    price: initialData?.price ?? "",
+    next_due_date: initialData?.next_due_date || "",
+    budget_bucket:
+      initialData?.budget_bucket || getBudgetBucketForCategory(initialData?.category || INITIAL_FORM_DATA.category),
+  };
+}
+
+export function ExpenseProductForm({
+  expenseProductId = null,
+  initialData = INITIAL_FORM_DATA,
+  onExpenseCreated,
+  onClose,
+  compact = true,
+  title = "Nuevo gasto fijo",
+  submitLabel = "Guardar gasto",
+}) {
+  const [formData, setFormData] = useState(() => normalizeFormData(initialData));
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    setFormData(normalizeFormData(initialData));
+  }, [initialData]);
 
   const inferredType = TYPE_LABELS[getTypeForCategory(formData.category)] || "Servicio";
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      ...(name === "category" ? { budget_bucket: getBudgetBucketForCategory(value) } : {}),
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -40,9 +70,10 @@ export function ExpenseProductForm({ onExpenseCreated, onClose, compact = true }
     }
 
     try {
-      await createProduct({
+      const payload = {
         name: formData.name,
         category: formData.category,
+        budget_bucket: formData.budget_bucket,
         type: getTypeForCategory(formData.category),
         price,
         usage_frequency: formData.usage_frequency,
@@ -50,9 +81,15 @@ export function ExpenseProductForm({ onExpenseCreated, onClose, compact = true }
         stock: 0,
         stock_min: 0,
         unit: "servicio",
-      });
+      };
 
-      setMessage("Gasto fijo guardado");
+      if (expenseProductId) {
+        await updateProduct(expenseProductId, payload);
+      } else {
+        await createProduct(payload);
+      }
+
+      setMessage(expenseProductId ? "Gasto fijo actualizado" : "Gasto fijo guardado");
       setFormData(INITIAL_FORM_DATA);
       await onExpenseCreated();
       if (onClose) {
@@ -67,7 +104,7 @@ export function ExpenseProductForm({ onExpenseCreated, onClose, compact = true }
   return (
     <section className={`panel modal-form-panel ${compact ? "compact" : ""}`}>
       <div className="modal-form-header">
-        <h2>Nuevo gasto fijo</h2>
+        <h2>{title}</h2>
         <button className="btn btn-outline" type="button" onClick={onClose}>
           Cerrar
         </button>
@@ -105,6 +142,22 @@ export function ExpenseProductForm({ onExpenseCreated, onClose, compact = true }
         <label>
           Tipo (automatico)
           <input type="text" value={inferredType} readOnly />
+        </label>
+
+        <label>
+          Bolsa 50-30-20
+          <select
+            name="budget_bucket"
+            required
+            value={formData.budget_bucket}
+            onChange={handleChange}
+          >
+            {BUDGET_BUCKET_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label>
@@ -147,7 +200,7 @@ export function ExpenseProductForm({ onExpenseCreated, onClose, compact = true }
         </label>
 
         <button className="btn btn-primary" type="submit">
-          Guardar gasto
+          {submitLabel}
         </button>
       </form>
 

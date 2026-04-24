@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { createProduct } from "../api.js";
 import {
+  BUDGET_BUCKET_OPTIONS,
   FREQUENCY_OPTIONS,
   HOME_INVENTORY_CATEGORY_OPTIONS,
   TYPE_LABELS,
+  getBudgetBucketForCategory,
   getTypeForCategory,
 } from "../constants/inventory.js";
 
 const INITIAL_FORM_DATA = {
   name: "",
   category: "food",
+  budget_bucket: getBudgetBucketForCategory("food"),
   stock: 0,
   stock_min: 1,
   unit: "unidad",
@@ -30,6 +33,7 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
+      ...(name === "category" ? { budget_bucket: getBudgetBucketForCategory(value) } : {}),
       [name]:
         name === "stock" || name === "stock_min"
           ? Number(value)
@@ -103,6 +107,22 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
         <label>
           Tipo (automatico)
           <input type="text" value={inferredType} readOnly />
+        </label>
+
+        <label>
+          Bolsa 50-30-20
+          <select
+            name="budget_bucket"
+            required
+            value={formData.budget_bucket}
+            onChange={handleChange}
+          >
+            {BUDGET_BUCKET_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label>

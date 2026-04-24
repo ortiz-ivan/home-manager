@@ -1,4 +1,7 @@
-import { VARIABLE_EXPENSE_CATEGORY_OPTIONS } from "../../constants/inventory.js";
+import {
+  BUDGET_BUCKET_OPTIONS,
+  VARIABLE_EXPENSE_CATEGORY_OPTIONS,
+} from "../../constants/inventory.js";
 
 function VariableExpenseFormFields({ formData, onChange, submitLabel }) {
   return (
@@ -25,6 +28,22 @@ function VariableExpenseFormFields({ formData, onChange, submitLabel }) {
           onChange={onChange}
         >
           {VARIABLE_EXPENSE_CATEGORY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Bolsa 50-30-20
+        <select
+          name="budget_bucket"
+          required
+          value={formData.budget_bucket}
+          onChange={onChange}
+        >
+          {BUDGET_BUCKET_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

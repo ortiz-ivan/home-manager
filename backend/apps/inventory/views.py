@@ -237,6 +237,11 @@ class MonthlyFinanceSummaryView(APIView):
 
     home_inventory_categories = {"food", "cleaning", "hygiene", "assets"}
     fixed_expense_categories = {"services", "subscription", "home"}
+    budget_target_ratio = {
+        "needs": 0.5,
+        "wants": 0.3,
+        "savings": 0.2,
+    }
 
     def get(self, request):
         today = timezone.localdate()
@@ -259,10 +264,19 @@ class MonthlyFinanceSummaryView(APIView):
         products = Product.objects.all()
         home_estimated_expenses = 0.0
         fixed_estimated_expenses = 0.0
+        budget_actuals = {
+            "needs": 0.0,
+            "wants": 0.0,
+            "savings": 0.0,
+        }
 
         for product in products:
+            budget_bucket = product.budget_bucket or Product.get_budget_bucket_for_category(product.category)
+
             if product.category in self.fixed_expense_categories:
-                fixed_estimated_expenses += float(product.price or 0)
+                fixed_amount = float(product.price or 0)
+                fixed_estimated_expenses += fixed_amount
+                budget_actuals[budget_bucket] += fixed_amount
                 continue
 
             if product.category in self.home_inventory_categories:
@@ -272,11 +286,16 @@ class MonthlyFinanceSummaryView(APIView):
                 projected_units = product.stock_min if product.type == "consumable" else 1
                 estimate = projected_units * base_cost * frequency
                 home_estimated_expenses += estimate
+                budget_actuals[budget_bucket] += estimate
 
-        variable_month_expenses = float(
-            VariableExpense.objects.filter(date__year=year, date__month=month).aggregate(total=Sum("amount"))["total"]
-            or 0
-        )
+        variable_month_expenses = 0.0
+        variable_expenses = VariableExpense.objects.filter(date__year=year, date__month=month)
+
+        for expense in variable_expenses:
+            amount = float(expense.amount or 0)
+            budget_bucket = expense.budget_bucket or VariableExpense.get_budget_bucket_for_category(expense.category)
+            variable_month_expenses += amount
+            budget_actuals[budget_bucket] += amount
 
         estimated_expenses = home_estimated_expenses + fixed_estimated_expenses + variable_month_expenses
 
@@ -290,6 +309,21 @@ class MonthlyFinanceSummaryView(APIView):
         if total_income > 0:
             expense_percentage = (estimated_expenses / total_income) * 100
 
+        budget_targets = {
+            bucket: round(total_income * ratio, 2)
+            for bucket, ratio in self.budget_target_ratio.items()
+        }
+        budget_actuals["needs"] = round(budget_actuals["needs"], 2)
+        budget_actuals["wants"] = round(budget_actuals["wants"], 2)
+        budget_actuals["savings"] = round(
+            max(total_income - budget_actuals["needs"] - budget_actuals["wants"], 0),
+            2,
+        )
+        budget_variance = {
+            bucket: round(budget_actuals[bucket] - budget_targets[bucket], 2)
+            for bucket in self.budget_target_ratio
+        }
+
         payload = {
             "month": month,
             "year": year,
@@ -300,6 +334,11 @@ class MonthlyFinanceSummaryView(APIView):
             "estimated_expenses": round(estimated_expenses, 2),
             "expense_percentage": round(expense_percentage, 2) if expense_percentage is not None else None,
             "remaining_balance": round(total_income - estimated_expenses, 2),
+            "rule_50_30_20": {
+                "targets": budget_targets,
+                "actuals": budget_actuals,
+                "variance": budget_variance,
+            },
         }
 
         serializer = MonthlyFinanceSummarySerializer(payload)

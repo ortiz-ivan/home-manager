@@ -4,6 +4,12 @@ from django.utils import timezone
 
 class Product(models.Model):
 
+    BUDGET_BUCKET_CHOICES = [
+        ("needs", "Necesidades"),
+        ("wants", "Deseos"),
+        ("savings", "Ahorro / deuda"),
+    ]
+
     CATEGORY_CHOICES = [
         ("food", "Alimentos"),
         ("cleaning", "Limpieza"),
@@ -35,6 +41,19 @@ class Product(models.Model):
         "assets": "asset",
     }
 
+    CATEGORY_BUDGET_BUCKET_MAP = {
+        "food": "needs",
+        "cleaning": "needs",
+        "hygiene": "needs",
+        "home": "needs",
+        "mobility": "needs",
+        "maintenance": "needs",
+        "subscription": "wants",
+        "services": "needs",
+        "assets": "needs",
+        "leisure": "wants",
+    }
+
     USAGE_FREQUENCY_CHOICES = [
         ("high", "Alta"),
         ("medium", "Media"),
@@ -45,6 +64,7 @@ class Product(models.Model):
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, default="consumable")
+    budget_bucket = models.CharField(max_length=20, choices=BUDGET_BUCKET_CHOICES, default="needs")
 
 
     stock = models.IntegerField(default=0)
@@ -74,6 +94,10 @@ class Product(models.Model):
     def get_type_for_category(cls, category: str) -> str:
         return cls.CATEGORY_TYPE_MAP.get(category, "consumable")
 
+    @classmethod
+    def get_budget_bucket_for_category(cls, category: str) -> str:
+        return cls.CATEGORY_BUDGET_BUCKET_MAP.get(category, "needs")
+
     def __str__(self):
         return f"{self.name} ({self.category})"
 
@@ -93,13 +117,21 @@ class Income(models.Model):
 
 
 class VariableExpense(models.Model):
+    BUDGET_BUCKET_CHOICES = Product.BUDGET_BUCKET_CHOICES
+
     CATEGORY_CHOICES = [
         ("mobility", "Movilidad"),
         ("maintenance", "Mantenimiento"),
     ]
 
+    CATEGORY_BUDGET_BUCKET_MAP = {
+        "mobility": "needs",
+        "maintenance": "needs",
+    }
+
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    budget_bucket = models.CharField(max_length=20, choices=BUDGET_BUCKET_CHOICES, default="needs")
     description = models.CharField(max_length=120, blank=True)
     notes = models.CharField(max_length=255, blank=True)
     date = models.DateField(default=timezone.localdate)
@@ -111,6 +143,10 @@ class VariableExpense(models.Model):
     def __str__(self):
 
         return f"Gasto variable {self.amount} ({self.category})"
+
+    @classmethod
+    def get_budget_bucket_for_category(cls, category: str) -> str:
+        return cls.CATEGORY_BUDGET_BUCKET_MAP.get(category, "needs")
 
 
 # Modelo para registrar pagos mensuales de gastos fijos

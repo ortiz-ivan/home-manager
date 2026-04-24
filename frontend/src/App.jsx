@@ -272,6 +272,11 @@ function App() {
     estimated_expenses: 0,
     expense_percentage: null,
     remaining_balance: 0,
+    rule_50_30_20: {
+      targets: { needs: 0, wants: 0, savings: 0 },
+      actuals: { needs: 0, wants: 0, savings: 0 },
+      variance: { needs: 0, wants: 0, savings: 0 },
+    },
   });
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
