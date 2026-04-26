@@ -1,4 +1,4 @@
-import { BUDGET_BUCKET_LABELS, CATEGORY_LABELS, TYPE_LABELS } from "../../constants/inventory.js";
+import { getBudgetBucketLabels, getCategoryLabel } from "../../constants/inventory.js";
 import { formatGuarani } from "./utils.js";
 
 export function FixedExpensesSection({
@@ -6,9 +6,12 @@ export function FixedExpensesSection({
   fixedExpenseMessage,
   isFixedExpenseError,
   payingExpenseId,
+  onOpenDetail,
   onEdit,
   onPay,
 }) {
+  const budgetBucketLabels = getBudgetBucketLabels();
+
   return (
     <article className="panel">
       <div className="panel-title">
@@ -24,9 +27,9 @@ export function FixedExpensesSection({
               <div className="fixed-expense-details">
                 <strong>{item.name}</strong>
                 <p>
-                  {CATEGORY_LABELS[item.category] || item.category} | {TYPE_LABELS[item.type] || item.type}
+                  {getCategoryLabel(item.category)}
                 </p>
-                <small>{BUDGET_BUCKET_LABELS[item.budget_bucket] || item.budget_bucket}</small>
+                <small>{budgetBucketLabels[item.budget_bucket] || item.budget_bucket}</small>
                 <small>Proximo vencimiento: {item.next_due_date || "sin fecha"}</small>
                 <div className="fixed-expense-status">
                   <span className={`status-chip ${item.monthly_payment_status === "paid" ? "paid" : "pending"}`}>
@@ -36,7 +39,10 @@ export function FixedExpensesSection({
                 </div>
               </div>
               <div className="fixed-expense-side">
-                <strong>{formatGuarani(item.price)}</strong>
+                <strong>{formatGuarani(item.monthly_amount)}</strong>
+                <button className="btn btn-outline" type="button" onClick={() => onOpenDetail(item)}>
+                  Ver historial
+                </button>
                 <button className="btn btn-secondary" type="button" onClick={() => onEdit(item)}>
                   Editar
                 </button>

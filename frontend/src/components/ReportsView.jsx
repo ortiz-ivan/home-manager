@@ -1,21 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { getMonthlyFinanceSummary } from "../api.js";
-import { CATEGORY_LABELS } from "../constants/inventory.js";
+import { formatCurrency, getCategoryLabel, getCurrentInventorySettings } from "../constants/inventory.js";
 
 const HISTORY_WINDOW = 6;
 
-function formatGuarani(value) {
-  return new Intl.NumberFormat("es-PY", {
-    style: "currency",
-    currency: "PYG",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
-}
-
 function formatCompactGuarani(value) {
-  return new Intl.NumberFormat("es-PY", {
+  const settings = getCurrentInventorySettings();
+  return new Intl.NumberFormat(settings.currency.locale, {
     style: "currency",
-    currency: "PYG",
+    currency: settings.currency.code,
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value || 0);
@@ -192,12 +185,12 @@ function ExpenseCompositionChart({ summary }) {
               <i className="legend-swatch" style={{ background: segment.color }} />
               <strong>{segment.label}</strong>
             </div>
-            <span>{formatGuarani(summary[segment.key])}</span>
+            <span>{formatCurrency(summary[segment.key])}</span>
           </div>
         ))}
         <div className="stacked-row total">
           <strong>Total estimado</strong>
-          <span>{formatGuarani(summary.estimated_expenses)}</span>
+          <span>{formatCurrency(summary.estimated_expenses)}</span>
         </div>
       </div>
     </article>
@@ -214,7 +207,7 @@ function InventoryCategoryChart({ products }) {
     return Object.entries(distribution)
       .map(([category, total]) => ({
         category,
-        label: CATEGORY_LABELS[category] || category,
+        label: getCategoryLabel(category),
         total,
       }))
       .sort((left, right) => right.total - left.total);
@@ -401,12 +394,12 @@ export function ReportsView({ products, incomes, variableExpenses, financeSummar
         <div className="reports-header-kpis">
           <article className="kpi-card accent-blue">
             <p>Ingreso del mes</p>
-            <h3>{formatGuarani(financeSummary.total_income)}</h3>
+            <h3>{formatCurrency(financeSummary.total_income)}</h3>
             <small>{incomes.length} movimientos registrados.</small>
           </article>
           <article className="kpi-card accent-green">
             <p>Saldo proyectado</p>
-            <h3>{formatGuarani(projectedSavings)}</h3>
+            <h3>{formatCurrency(projectedSavings)}</h3>
             <small>{variableExpenses.length} gastos variables activos.</small>
           </article>
         </div>

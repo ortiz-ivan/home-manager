@@ -1,61 +1,61 @@
 import { useState } from "react";
 import { createProduct } from "../api.js";
 import {
-  BUDGET_BUCKET_OPTIONS,
   FREQUENCY_OPTIONS,
-  HOME_INVENTORY_CATEGORY_OPTIONS,
-  TYPE_LABELS,
   getBudgetBucketForCategory,
+  getBudgetBucketOptions,
+  getCategoryOptions,
   getTypeForCategory,
+  getTypeLabel,
+  getUnitOptions,
 } from "../constants/inventory.js";
 
-const INITIAL_FORM_DATA = {
-  name: "",
-  category: "food",
-  budget_bucket: getBudgetBucketForCategory("food"),
-  stock: 0,
-  stock_min: 1,
-  unit: "unidad",
-  price: "",
-  usage_frequency: "medium",
-  last_purchase: "",
-  next_due_date: "",
-};
+function createInitialFormData() {
+  const firstCategory = getCategoryOptions("inventory")[0]?.value || "food";
+  return {
+    name: "",
+    category: firstCategory,
+    budget_bucket: getBudgetBucketForCategory(firstCategory),
+    stock: 0,
+    stock_min: 1,
+    unit: getUnitOptions()[0]?.value || "unidad",
+    price: "",
+    usage_frequency: "medium",
+    last_purchase: "",
+    next_due_date: "",
+  };
+}
 
 export function ProductForm({ onProductCreated, onClose, compact = true }) {
-  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
-  const inferredType = TYPE_LABELS[getTypeForCategory(formData.category)] || "Consumible";
-
+  const [formData, setFormData] = useState(() => createInitialFormData());
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const categoryOptions = getCategoryOptions("inventory");
+  const budgetBucketOptions = getBudgetBucketOptions();
+  const unitOptions = getUnitOptions();
+  const inferredType = getTypeLabel(getTypeForCategory(formData.category)) || "Consumible";
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
     setFormData((prev) => ({
       ...prev,
       ...(name === "category" ? { budget_bucket: getBudgetBucketForCategory(value) } : {}),
-      [name]:
-        name === "stock" || name === "stock_min"
-          ? Number(value)
-          : name === "price"
-            ? value
-            : value,
+      [name]: name === "stock" || name === "stock_min" ? Number(value) : value,
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setMessage("");
     setIsError(false);
 
     try {
-      const payload = {
+      await createProduct({
         ...formData,
         type: getTypeForCategory(formData.category),
         price: formData.price === "" ? null : Number(formData.price),
-      };
-      await createProduct(payload);
-      setFormData(INITIAL_FORM_DATA);
+      });
+      setFormData(createInitialFormData());
       setMessage("Producto guardado");
       onProductCreated();
       if (onClose) {
@@ -78,25 +78,13 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
       <form onSubmit={handleSubmit} className="form-grid">
         <label>
           Nombre
-          <input
-            name="name"
-            type="text"
-            required
-            maxLength="100"
-            value={formData.name}
-            onChange={handleChange}
-          />
+          <input name="name" type="text" required maxLength="100" value={formData.name} onChange={handleChange} />
         </label>
 
         <label>
           Categoria de hogar
-          <select
-            name="category"
-            required
-            value={formData.category}
-            onChange={handleChange}
-          >
-            {HOME_INVENTORY_CATEGORY_OPTIONS.map((category) => (
+          <select name="category" required value={formData.category} onChange={handleChange}>
+            {categoryOptions.map((category) => (
               <option key={category.value} value={category.value}>
                 {category.label}
               </option>
@@ -111,13 +99,8 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
 
         <label>
           Bolsa 50-30-20
-          <select
-            name="budget_bucket"
-            required
-            value={formData.budget_bucket}
-            onChange={handleChange}
-          >
-            {BUDGET_BUCKET_OPTIONS.map((option) => (
+          <select name="budget_bucket" required value={formData.budget_bucket} onChange={handleChange}>
+            {budgetBucketOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -127,26 +110,12 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
 
         <label>
           Stock actual
-          <input
-            name="stock"
-            type="number"
-            min="0"
-            required
-            value={formData.stock}
-            onChange={handleChange}
-          />
+          <input name="stock" type="number" min="0" required value={formData.stock} onChange={handleChange} />
         </label>
 
         <label>
           Stock minimo
-          <input
-            name="stock_min"
-            type="number"
-            min="0"
-            required
-            value={formData.stock_min}
-            onChange={handleChange}
-          />
+          <input name="stock_min" type="number" min="0" required value={formData.stock_min} onChange={handleChange} />
         </label>
 
         <label>
@@ -154,21 +123,24 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
           <input
             name="unit"
             type="text"
-            maxLength="20"
+            maxLength="40"
             required
+            list="inventory-unit-options"
             value={formData.unit}
             onChange={handleChange}
           />
+          <datalist id="inventory-unit-options">
+            {unitOptions.map((unit) => (
+              <option key={unit.value} value={unit.value}>
+                {unit.label}
+              </option>
+            ))}
+          </datalist>
         </label>
 
         <label>
           Frecuencia de uso
-          <select
-            name="usage_frequency"
-            required
-            value={formData.usage_frequency}
-            onChange={handleChange}
-          >
+          <select name="usage_frequency" required value={formData.usage_frequency} onChange={handleChange}>
             {FREQUENCY_OPTIONS.map((frequency) => (
               <option key={frequency.value} value={frequency.value}>
                 {frequency.label}
@@ -179,35 +151,17 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
 
         <label>
           Precio
-          <input
-            name="price"
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.price}
-            onChange={handleChange}
-            placeholder="Opcional"
-          />
+          <input name="price" type="number" min="0" step="0.01" value={formData.price} onChange={handleChange} placeholder="Opcional" />
         </label>
 
         <label>
           Ultima compra
-          <input
-            name="last_purchase"
-            type="date"
-            value={formData.last_purchase}
-            onChange={handleChange}
-          />
+          <input name="last_purchase" type="date" value={formData.last_purchase} onChange={handleChange} />
         </label>
 
         <label>
           Proximo vencimiento
-          <input
-            name="next_due_date"
-            type="date"
-            value={formData.next_due_date}
-            onChange={handleChange}
-          />
+          <input name="next_due_date" type="date" value={formData.next_due_date} onChange={handleChange} />
         </label>
 
         <button className="btn btn-primary" type="submit">

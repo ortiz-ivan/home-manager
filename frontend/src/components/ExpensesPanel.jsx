@@ -4,11 +4,12 @@ import {
   createVariableExpense,
   deleteIncome,
   deleteVariableExpense,
-  payProduct,
+  payFixedExpense,
   updateIncome,
   updateVariableExpense,
 } from "../api.js";
 import { ExpenseProductForm } from "./ExpenseProductForm.jsx";
+import { FixedExpenseDetailModal } from "./expenses/FixedExpenseDetailModal.jsx";
 import { FinanceSummaryCards } from "./expenses/FinanceSummaryCards.jsx";
 import { FixedExpensesSection } from "./expenses/FixedExpensesSection.jsx";
 import { IncomeModal } from "./expenses/IncomeModal.jsx";
@@ -51,6 +52,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   const [isEditVariableError, setIsEditVariableError] = useState(false);
   const [editingFixedExpenseId, setEditingFixedExpenseId] = useState(null);
   const [editFixedExpenseForm, setEditFixedExpenseForm] = useState(null);
+  const [selectedFixedExpense, setSelectedFixedExpense] = useState(null);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -279,8 +281,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       name: expense.name,
       category: expense.category,
       budget_bucket: expense.budget_bucket || getBudgetBucketForCategory(expense.category),
-      price: expense.price ?? "",
-      usage_frequency: expense.usage_frequency,
+      monthly_amount: expense.monthly_amount ?? "",
       next_due_date: expense.next_due_date || "",
     });
     setIsEditFixedExpenseModalOpen(true);
@@ -290,6 +291,14 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     setIsEditFixedExpenseModalOpen(false);
     setEditingFixedExpenseId(null);
     setEditFixedExpenseForm(null);
+  };
+
+  const openFixedExpenseDetail = (expense) => {
+    setSelectedFixedExpense(expense);
+  };
+
+  const closeFixedExpenseDetail = () => {
+    setSelectedFixedExpense(null);
   };
 
   const handleDeleteVariableExpense = async (expense) => {
@@ -316,7 +325,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
     setPayingExpenseId(expense.id);
 
     try {
-      await payProduct(expense.id);
+      await payFixedExpense(expense.id);
       setFixedExpenseMessage(`Pago registrado para ${expense.name}`);
       await onDataChanged();
     } catch (error) {
@@ -367,6 +376,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
           fixedExpenseMessage={fixedExpenseMessage}
           isFixedExpenseError={isFixedExpenseError}
           payingExpenseId={payingExpenseId}
+          onOpenDetail={openFixedExpenseDetail}
           onEdit={handleEditFixedExpense}
           onPay={handlePayFixedExpense}
         />
@@ -397,6 +407,12 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
           </div>
         </div>
       )}
+
+      <FixedExpenseDetailModal
+        expense={selectedFixedExpense}
+        isOpen={Boolean(selectedFixedExpense)}
+        onClose={closeFixedExpenseDetail}
+      />
 
       <IncomeModal
         isOpen={isIncomeModalOpen}

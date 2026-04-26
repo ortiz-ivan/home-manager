@@ -2,14 +2,27 @@ import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import { ProductForm } from "./components/ProductForm.jsx";
 import { ProductList } from "./components/ProductList.jsx";
+import { PurchasesView } from "./components/PurchasesView.jsx";
 import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
 import { ReportsView } from "./components/ReportsView.jsx";
-import { getMonthlyFinanceSummary, listIncomes, listProducts, listVariableExpenses } from "./api.js";
+import { SettingsView } from "./components/SettingsView.jsx";
 import {
-  CATEGORY_LABELS,
-  FIXED_EXPENSE_CATEGORY_VALUES,
-  HOME_INVENTORY_CATEGORY_VALUES,
+  getInventorySettings,
+  getMonthlyFinanceSummary,
+  listFixedExpenses,
+  listIncomes,
+  listProducts,
+  listVariableExpenses,
+  updateInventorySettings,
+} from "./api.js";
+import {
+  formatCurrency,
+  getCategoryFallbackUnitCost,
+  getCategoryLabel,
+  getUsageFrequencyWeight,
   isHomeInventoryCategory,
+  normalizeInventorySettings,
+  setCurrentInventorySettings,
 } from "./constants/inventory.js";
 
 const MODULES = [
@@ -20,25 +33,6 @@ const MODULES = [
   { key: "expenses", label: "Gastos" },
   { key: "settings", label: "Categorias y Configuracion" },
 ];
-
-const CATEGORY_UNIT_COST = {
-  food: 4.8,
-  cleaning: 6.2,
-  hygiene: 5.1,
-  home: 7.4,
-  mobility: 8.1,
-  maintenance: 10.5,
-  subscription: 9.5,
-  services: 12,
-  assets: 11.6,
-  leisure: 7.9,
-};
-
-const FREQUENCY_WEIGHT = {
-  high: 1.5,
-  medium: 1,
-  low: 0.65,
-};
 
 function daysBetween(dateString) {
   if (!dateString) {
@@ -58,14 +52,6 @@ function daysBetween(dateString) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-function formatGuarani(value) {
-  return new Intl.NumberFormat("es-PY", {
-    style: "currency",
-    currency: "PYG",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
-}
-
 function DashboardView({
   products,
   filteredProducts,
@@ -75,7 +61,7 @@ function DashboardView({
   monthlySpendEstimate,
   financeSummary,
   totalStockUnits,
-  categoryDistribution,
+  inventorySettings,
 }) {
   return (
     <section className="module-content fade-in">
@@ -101,7 +87,7 @@ function DashboardView({
           </header>
           <strong>{expiringSoon.length} productos</strong>
           <p>
-            Detectados con fecha de vencimiento dentro de 14 dias.
+            Detectados con fecha de vencimiento dentro de {inventorySettings.alerts.expiring_soon_days} dias.
           </p>
         </article>
 
@@ -111,14 +97,14 @@ function DashboardView({
             <h3>Items criticos</h3>
           </header>
           <strong>{criticalItems.length} items</strong>
-          <p>Stock por debajo del minimo en productos de alta frecuencia.</p>
+          <p>Stock critico en productos con frecuencia marcada como sensible.</p>
         </article>
       </div>
 
       <div className="kpi-grid">
         <article className="kpi-card">
           <p>Gasto mensual estimado</p>
-          <h3>{formatGuarani(monthlySpendEstimate)}</h3>
+          <h3>{formatCurrency(monthlySpendEstimate)}</h3>
           <small>Estimacion basada en categoria y frecuencia de uso.</small>
         </article>
 
@@ -141,7 +127,7 @@ function DashboardView({
               ? "Sin ingresos"
               : `${financeSummary.expense_percentage}%`}
           </h3>
-          <small>Saldo: {formatGuarani(financeSummary.remaining_balance)}</small>
+          <small>Saldo: {formatCurrency(financeSummary.remaining_balance)}</small>
         </article>
       </div>
 
@@ -157,7 +143,7 @@ function DashboardView({
               <div className="summary-row" key={product.id}>
                 <div>
                   <strong>{product.name}</strong>
-                  <p>{CATEGORY_LABELS[product.category] || product.category}</p>
+                  <p>{getCategoryLabel(product.category)}</p>
                 </div>
                 <div className={`stock-chip ${status.toLowerCase()}`}>{status}</div>
               </div>
@@ -187,8 +173,10 @@ function PlaceholderModule({ title, description }) {
 function App() {
   const [route, setRoute] = useState("dashboard");
   const [products, setProducts] = useState([]);
+  const [fixedExpenses, setFixedExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [variableExpenses, setVariableExpenses] = useState([]);
+  const [inventorySettings, setInventorySettings] = useState(() => normalizeInventorySettings());
   const [financeSummary, setFinanceSummary] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
@@ -206,6 +194,7 @@ function App() {
     },
   });
   const [loading, setLoading] = useState(true);
+  const [loadingSettings, setLoadingSettings] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -229,12 +218,14 @@ function App() {
 
   const loadFinanceData = useCallback(async () => {
     try {
-      const [incomeData, variableExpenseData, summaryData] = await Promise.all([
+      const [fixedExpenseData, incomeData, variableExpenseData, summaryData] = await Promise.all([
+        listFixedExpenses(),
         listIncomes(),
         listVariableExpenses(),
         getMonthlyFinanceSummary(),
       ]);
 
+      setFixedExpenses(fixedExpenseData || []);
       setIncomes(incomeData || []);
       setVariableExpenses(variableExpenseData || []);
       if (summaryData) {
@@ -242,8 +233,26 @@ function App() {
       }
     } catch (error) {
       console.error("Error loading finance data:", error);
+      setFixedExpenses([]);
       setIncomes([]);
       setVariableExpenses([]);
+    }
+  }, []);
+
+  const loadInventoryConfig = useCallback(async () => {
+    setLoadingSettings(true);
+    try {
+      const data = await getInventorySettings();
+      const nextSettings = normalizeInventorySettings(data);
+      setInventorySettings(nextSettings);
+      setCurrentInventorySettings(nextSettings);
+    } catch (error) {
+      console.error("Error loading inventory settings:", error);
+      const fallbackSettings = normalizeInventorySettings();
+      setInventorySettings(fallbackSettings);
+      setCurrentInventorySettings(fallbackSettings);
+    } finally {
+      setLoadingSettings(false);
     }
   }, []);
 
@@ -252,8 +261,14 @@ function App() {
   }, [loadFinanceData, loadProducts]);
 
   useEffect(() => {
-    refreshAllData();
-  }, [refreshAllData]);
+    loadInventoryConfig();
+  }, [loadInventoryConfig]);
+
+  useEffect(() => {
+    if (!loadingSettings) {
+      refreshAllData();
+    }
+  }, [loadingSettings, refreshAllData]);
 
   useEffect(() => {
     const handleEsc = (event) => {
@@ -269,14 +284,10 @@ function App() {
     return () => document.removeEventListener("keydown", handleEsc);
   }, [isModalOpen]);
 
-  const homeProducts = products.filter((product) => isHomeInventoryCategory(product.category));
-  const expenseProducts = products.filter((product) => !isHomeInventoryCategory(product.category));
-  const fixedExpenseProducts = expenseProducts.filter((product) =>
-    FIXED_EXPENSE_CATEGORY_VALUES.includes(product.category)
-  );
+  const homeProducts = products.filter((product) => isHomeInventoryCategory(product.category, inventorySettings));
 
   const filteredHomeProducts = homeProducts.filter((product) => {
-    const category = CATEGORY_LABELS[product.category] || product.category;
+    const category = getCategoryLabel(product.category, inventorySettings);
     const query = searchQuery.trim().toLowerCase();
 
     if (!query) {
@@ -289,37 +300,29 @@ function App() {
     );
   });
 
-  const lowStockProducts = homeProducts.filter((product) => product.stock <= product.stock_min);
+  const lowStockProducts = homeProducts.filter(
+    (product) => product.stock <= Number(product.stock_min || 0) * Number(inventorySettings.thresholds.low_stock_ratio || 1)
+  );
   const criticalItems = homeProducts.filter(
-    (product) => product.stock <= product.stock_min && product.usage_frequency === "high"
+    (product) => (
+      product.stock <= Number(product.stock_min || 0) * Number(inventorySettings.thresholds.critical_stock_ratio || 1) &&
+      inventorySettings.alerts.critical_frequencies.includes(product.usage_frequency)
+    )
   );
   const expiringSoon = homeProducts.filter((product) => {
     const remaining = daysBetween(product.next_due_date);
-    return remaining !== null && remaining >= 0 && remaining <= 14;
+    return remaining !== null && remaining >= 0 && remaining <= Number(inventorySettings.alerts.expiring_soon_days || 14);
   });
 
   const totalStockUnits = homeProducts.reduce((acc, product) => acc + Number(product.stock || 0), 0);
   const monthlySpendEstimate = homeProducts.reduce((acc, product) => {
-    const fallbackCost = CATEGORY_UNIT_COST[product.category] || 4;
+    const fallbackCost = getCategoryFallbackUnitCost(product.category, inventorySettings);
     const explicitPrice = Number(product.price);
     const baseCost = Number.isNaN(explicitPrice) || explicitPrice <= 0 ? fallbackCost : explicitPrice;
-    const frequency = FREQUENCY_WEIGHT[product.usage_frequency] || 1;
+    const frequency = getUsageFrequencyWeight(product.usage_frequency, inventorySettings);
     const projectedUnits = product.type === "consumable" ? Number(product.stock_min || 1) : 1;
     return acc + projectedUnits * baseCost * frequency;
   }, 0);
-
-  const categoryDistribution = homeProducts.reduce(
-    (acc, product) => {
-      if (acc[product.category] !== undefined) {
-        acc[product.category] += Number(product.stock || 0);
-      }
-      return acc;
-    },
-    HOME_INVENTORY_CATEGORY_VALUES.reduce((seed, category) => {
-      seed[category] = 0;
-      return seed;
-    }, {})
-  );
 
   const currentModuleLabel = MODULES.find((module) => module.key === route)?.label || "Dashboard";
   const showSearch = route === "dashboard" || route === "inventory";
@@ -386,7 +389,7 @@ function App() {
             monthlySpendEstimate={monthlySpendEstimate}
             financeSummary={financeSummary}
             totalStockUnits={totalStockUnits}
-            categoryDistribution={categoryDistribution}
+            inventorySettings={inventorySettings}
           />
         )}
 
@@ -396,7 +399,7 @@ function App() {
             incomes={incomes}
             variableExpenses={variableExpenses}
             financeSummary={financeSummary}
-            fixedExpenseProducts={fixedExpenseProducts}
+            fixedExpenseProducts={fixedExpenses}
           />
         )}
 
@@ -418,9 +421,9 @@ function App() {
         )}
 
         {route === "purchases" && (
-          <PlaceholderModule
-            title="Compras"
-            description="Planifica reposiciones y centraliza ordenes recurrentes del hogar."
+          <PurchasesView
+            products={homeProducts}
+            onDataChanged={refreshAllData}
           />
         )}
 
@@ -428,16 +431,23 @@ function App() {
           <ExpensesPanel
             incomes={incomes}
             summary={financeSummary}
-            expenseProducts={fixedExpenseProducts}
+            expenseProducts={fixedExpenses}
             variableExpenses={variableExpenses}
             onDataChanged={refreshAllData}
           />
         )}
 
         {route === "settings" && (
-          <PlaceholderModule
-            title="Categorias y Configuracion"
-            description="Ajusta categorias, limites minimos y reglas operativas."
+          <SettingsView
+            settings={inventorySettings}
+            loading={loadingSettings}
+            onSave={async (nextSettings) => {
+              const response = await updateInventorySettings(nextSettings);
+              const updatedSettings = normalizeInventorySettings(response);
+              setInventorySettings(updatedSettings);
+              setCurrentInventorySettings(updatedSettings);
+              await refreshAllData();
+            }}
           />
         )}
       </section>

@@ -1,11 +1,7 @@
-import { getBudgetBucketForCategory } from "../../constants/inventory.js";
+import { formatCurrency, getBudgetBucketForCategory, getCategoryOptions } from "../../constants/inventory.js";
 
 export function formatGuarani(value) {
-  return new Intl.NumberFormat("es-PY", {
-    style: "currency",
-    currency: "PYG",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
+  return formatCurrency(value);
 }
 
 export function formatMonthYear(month, year) {
@@ -30,10 +26,11 @@ export function createIncomeFormState(date) {
 }
 
 export function createVariableExpenseFormState(date) {
+  const firstCategory = getCategoryOptions("variable_expense")[0]?.value || "mobility";
   return {
     amount: "",
-    category: "mobility",
-    budget_bucket: getBudgetBucketForCategory("mobility"),
+    category: firstCategory,
+    budget_bucket: getBudgetBucketForCategory(firstCategory),
     description: "",
     notes: "",
     date,

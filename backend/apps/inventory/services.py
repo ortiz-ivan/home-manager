@@ -1,6 +1,6 @@
 import calendar
 
-from .models import FixedExpensePayment, Product
+from .models import FixedExpense, FixedExpensePayment, Product
 from django.db import transaction
 from django.utils import timezone
 
@@ -70,31 +70,25 @@ def _add_one_month(target_date):
     return target_date.replace(year=year, month=month, day=day)
 
 
-def register_payment(product_id: int):
+def register_payment(fixed_expense_id: int):
     with transaction.atomic():
-        product = Product.objects.select_for_update().get(id=product_id)
-
-        if product.category not in ["services", "subscription", "home"]:
-            raise ValueError("Solo aplica a gastos fijos")
+        fixed_expense = FixedExpense.objects.select_for_update().get(id=fixed_expense_id)
 
         today = timezone.localdate()
         payment_period = today.replace(day=1)
-        payment_amount = product.price or 0
+        payment_amount = fixed_expense.monthly_amount or 0
 
         payment, _ = FixedExpensePayment.objects.update_or_create(
-            product=product,
+            fixed_expense=fixed_expense,
             date=payment_period,
             defaults={"amount": payment_amount},
         )
 
-        product.last_purchase = today
-
-        if product.next_due_date:
-            product.next_due_date = _add_one_month(product.next_due_date)
-
-        product.save()
+        if fixed_expense.next_due_date:
+            fixed_expense.next_due_date = _add_one_month(fixed_expense.next_due_date)
+            fixed_expense.save(update_fields=["next_due_date", "updated_at"])
 
         return {
-            "product": product,
+            "fixed_expense": fixed_expense,
             "payment": payment,
         }

@@ -1,7 +1,9 @@
-import { BUDGET_BUCKET_LABELS, CATEGORY_LABELS } from "../../constants/inventory.js";
+import { getBudgetBucketLabels, getCategoryLabel } from "../../constants/inventory.js";
 import { formatGuarani } from "./utils.js";
 
 export function VariableExpensesSection({ variableExpenses, onEdit, onDelete }) {
+  const budgetBucketLabels = getBudgetBucketLabels();
+
   return (
     <article className="panel">
       <div className="panel-title">
@@ -16,8 +18,8 @@ export function VariableExpensesSection({ variableExpenses, onEdit, onDelete }) 
             <div className="income-row" key={expense.id}>
               <div>
                 <strong>{formatGuarani(expense.amount)}</strong>
-                <p>{CATEGORY_LABELS[expense.category] || expense.category}</p>
-                <small>{BUDGET_BUCKET_LABELS[expense.budget_bucket] || expense.budget_bucket}</small>
+                <p>{getCategoryLabel(expense.category)}</p>
+                <small>{budgetBucketLabels[expense.budget_bucket] || expense.budget_bucket}</small>
                 <small>{expense.date} {expense.description ? `| ${expense.description}` : ""}</small>
               </div>
               <div className="row-actions">

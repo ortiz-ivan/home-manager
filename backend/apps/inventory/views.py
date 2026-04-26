@@ -6,9 +6,19 @@ from rest_framework.views import APIView
 from django.db.models import Sum
 from django.utils import timezone
 
-from .models import Income, Product, VariableExpense
+from .models import (
+    FixedExpense,
+    Income,
+    InventorySettings,
+    Product,
+    VariableExpense,
+    get_budget_bucket_ratio_map,
+    get_category_fallback_unit_cost,
+)
 from .serializers import (
+    FixedExpenseSerializer,
     IncomeSerializer,
+    InventorySettingsSerializer,
     MonthlyFinanceSummarySerializer,
     ProductSerializer,
     VariableExpenseSerializer,
@@ -22,7 +32,7 @@ from .services import (
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all().prefetch_related("fixed_payments")
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
 
@@ -79,6 +89,21 @@ class ProductViewSet(viewsets.ModelViewSet):
         })
 
 
+    def get_queryset(self):
+        return super().get_queryset()
+
+
+class FixedExpenseViewSet(viewsets.ModelViewSet):
+    queryset = FixedExpense.objects.all().prefetch_related("payments")
+    serializer_class = FixedExpenseSerializer
+
+    def _handle_action(self, func, *args):
+        try:
+            result = func(*args)
+            return result, None
+        except (TypeError, ValueError) as exc:
+            return None, Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=["post"])
     def pay(self, request, pk=None):
         result, error = self._handle_action(register_payment, pk)
@@ -87,7 +112,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             return error
 
         return Response({
-            "product": ProductSerializer(result["product"]).data
+            "fixed_expense": FixedExpenseSerializer(result["fixed_expense"]).data
         })
 
 
@@ -216,33 +241,6 @@ class VariableExpenseViewSet(viewsets.ModelViewSet):
 
 
 class MonthlyFinanceSummaryView(APIView):
-    category_unit_cost = {
-        "food": 4.8,
-        "cleaning": 6.2,
-        "hygiene": 5.1,
-        "home": 7.4,
-        "mobility": 8.1,
-        "maintenance": 10.5,
-        "subscription": 9.5,
-        "services": 12,
-        "assets": 11.6,
-        "leisure": 7.9,
-    }
-
-    frequency_weight = {
-        "high": 1.5,
-        "medium": 1,
-        "low": 0.65,
-    }
-
-    home_inventory_categories = {"food", "cleaning", "hygiene", "assets"}
-    fixed_expense_categories = {"services", "subscription", "home"}
-    budget_target_ratio = {
-        "needs": 0.5,
-        "wants": 0.3,
-        "savings": 0.2,
-    }
-
     def get(self, request):
         today = timezone.localdate()
 
@@ -261,7 +259,12 @@ class MonthlyFinanceSummaryView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        settings_data = InventorySettings.get_solo().get_config()
+        frequency_weight = settings_data.get("usage_frequency_weights", {})
+        budget_target_ratio = get_budget_bucket_ratio_map(settings_data)
+
         products = Product.objects.all()
+        fixed_expenses = FixedExpense.objects.all()
         home_estimated_expenses = 0.0
         fixed_estimated_expenses = 0.0
         budget_actuals = {
@@ -273,20 +276,19 @@ class MonthlyFinanceSummaryView(APIView):
         for product in products:
             budget_bucket = product.budget_bucket or Product.get_budget_bucket_for_category(product.category)
 
-            if product.category in self.fixed_expense_categories:
-                fixed_amount = float(product.price or 0)
-                fixed_estimated_expenses += fixed_amount
-                budget_actuals[budget_bucket] += fixed_amount
-                continue
+            fallback_cost = get_category_fallback_unit_cost(settings_data, product.category, 4)
+            base_cost = float(product.price) if product.price and product.price > 0 else fallback_cost
+            frequency = float(frequency_weight.get(product.usage_frequency, 1))
+            projected_units = product.stock_min if product.type == "consumable" else 1
+            estimate = projected_units * base_cost * frequency
+            home_estimated_expenses += estimate
+            budget_actuals[budget_bucket] += estimate
 
-            if product.category in self.home_inventory_categories:
-                fallback_cost = self.category_unit_cost.get(product.category, 4)
-                base_cost = float(product.price) if product.price and product.price > 0 else fallback_cost
-                frequency = self.frequency_weight.get(product.usage_frequency, 1)
-                projected_units = product.stock_min if product.type == "consumable" else 1
-                estimate = projected_units * base_cost * frequency
-                home_estimated_expenses += estimate
-                budget_actuals[budget_bucket] += estimate
+        for expense in fixed_expenses:
+            fixed_amount = float(expense.monthly_amount or 0)
+            budget_bucket = expense.budget_bucket or FixedExpense.get_budget_bucket_for_category(expense.category)
+            fixed_estimated_expenses += fixed_amount
+            budget_actuals[budget_bucket] += fixed_amount
 
         variable_month_expenses = 0.0
         variable_expenses = VariableExpense.objects.filter(date__year=year, date__month=month)
@@ -311,7 +313,7 @@ class MonthlyFinanceSummaryView(APIView):
 
         budget_targets = {
             bucket: round(total_income * ratio, 2)
-            for bucket, ratio in self.budget_target_ratio.items()
+            for bucket, ratio in budget_target_ratio.items()
         }
         budget_actuals["needs"] = round(budget_actuals["needs"], 2)
         budget_actuals["wants"] = round(budget_actuals["wants"], 2)
@@ -321,7 +323,7 @@ class MonthlyFinanceSummaryView(APIView):
         )
         budget_variance = {
             bucket: round(budget_actuals[bucket] - budget_targets[bucket], 2)
-            for bucket in self.budget_target_ratio
+            for bucket in budget_target_ratio
         }
 
         payload = {
@@ -342,4 +344,30 @@ class MonthlyFinanceSummaryView(APIView):
         }
 
         serializer = MonthlyFinanceSummarySerializer(payload)
+        return Response(serializer.data)
+
+
+class InventorySettingsView(APIView):
+    def get(self, request):
+        settings_instance = InventorySettings.get_solo()
+        serializer = InventorySettingsSerializer(settings_instance)
+        return Response(serializer.data)
+
+    def put(self, request):
+        settings_instance = InventorySettings.get_solo()
+        serializer = InventorySettingsSerializer(settings_instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def patch(self, request):
+        settings_instance = InventorySettings.get_solo()
+        current_config = settings_instance.get_config()
+        payload_config = request.data.get("config", {})
+        serializer = InventorySettingsSerializer(
+            settings_instance,
+            data={"config": {**current_config, **payload_config}},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)

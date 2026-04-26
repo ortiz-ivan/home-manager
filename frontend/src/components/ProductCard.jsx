@@ -3,44 +3,32 @@ import {
   consumeProduct,
   buyProduct,
   markOutOfStock,
-  payProduct,
   updateProduct,
   deleteProduct,
 } from "../api.js";
 import {
-  BUDGET_BUCKET_LABELS,
-  BUDGET_BUCKET_OPTIONS,
-  CATEGORY_LABELS,
   FREQUENCY_LABELS,
   FREQUENCY_OPTIONS,
-  HOME_INVENTORY_CATEGORY_OPTIONS,
-  TYPE_LABELS,
+  formatCurrency,
   getBudgetBucketForCategory,
+  getBudgetBucketLabels,
+  getBudgetBucketOptions,
+  getCategoryLabel,
+  getCategoryOptions,
   getTypeForCategory,
+  getTypeLabel,
+  getUnitOptions,
 } from "../constants/inventory.js";
-
-function formatCurrency(value) {
-  if (value === null || value === undefined || value === "") {
-    return "sin dato";
-  }
-
-  const amount = Number(value);
-  if (Number.isNaN(amount)) {
-    return "sin dato";
-  }
-
-  return new Intl.NumberFormat("es-PY", {
-    style: "currency",
-    currency: "PYG",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
 
 export function ProductCard({ product, onUpdate, onDelete }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(product);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const categoryOptions = getCategoryOptions("inventory");
+  const budgetBucketOptions = getBudgetBucketOptions();
+  const budgetBucketLabels = getBudgetBucketLabels();
+  const unitOptions = getUnitOptions();
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -67,8 +55,6 @@ export function ProductCard({ product, onUpdate, onDelete }) {
         await buyProduct(product.id, 1);
       } else if (action === "out_of_stock") {
         await markOutOfStock(product.id);
-      } else if (action === "pay") {
-        await payProduct(product.id);
       }
       onUpdate();
     } catch (error) {
@@ -110,14 +96,13 @@ export function ProductCard({ product, onUpdate, onDelete }) {
     }
   };
 
-  const category = CATEGORY_LABELS[product.category] || product.category;
+  const category = getCategoryLabel(product.category);
   const frequency = FREQUENCY_LABELS[product.usage_frequency] || product.usage_frequency;
-  const type = TYPE_LABELS[product.type] || product.type;
-  const budgetBucket = BUDGET_BUCKET_LABELS[product.budget_bucket] || product.budget_bucket;
-  const editingType = TYPE_LABELS[getTypeForCategory(editData.category)] || editData.type;
+  const type = getTypeLabel(product.type);
+  const budgetBucket = budgetBucketLabels[product.budget_bucket] || product.budget_bucket;
+  const editingType = getTypeLabel(getTypeForCategory(editData.category)) || editData.type;
   const isLowStock = product.stock <= product.stock_min;
   const isConsumable = product.type === "consumable";
-  const canPay = product.type === "service" || product.type === "subscription";
 
   return (
     <article className="product-card">
@@ -174,15 +159,6 @@ export function ProductCard({ product, onUpdate, onDelete }) {
                 </button>
               </>
             )}
-            {canPay && (
-              <button
-                className="btn btn-success"
-                type="button"
-                onClick={() => handleQuickAction("pay")}
-              >
-                Registrar pago
-              </button>
-            )}
           </div>
 
           <div className="actions">
@@ -224,7 +200,7 @@ export function ProductCard({ product, onUpdate, onDelete }) {
               value={editData.category}
               onChange={handleEditChange}
             >
-              {HOME_INVENTORY_CATEGORY_OPTIONS.map((categoryOption) => (
+              {categoryOptions.map((categoryOption) => (
                 <option key={categoryOption.value} value={categoryOption.value}>
                   {categoryOption.label}
                 </option>
@@ -245,7 +221,7 @@ export function ProductCard({ product, onUpdate, onDelete }) {
               value={editData.budget_bucket || getBudgetBucketForCategory(editData.category)}
               onChange={handleEditChange}
             >
-              {BUDGET_BUCKET_OPTIONS.map((option) => (
+              {budgetBucketOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -282,11 +258,19 @@ export function ProductCard({ product, onUpdate, onDelete }) {
             <input
               name="unit"
               type="text"
-              maxLength="20"
+              maxLength="40"
+              list={`inventory-unit-options-${product.id}`}
               required
               value={editData.unit}
               onChange={handleEditChange}
             />
+            <datalist id={`inventory-unit-options-${product.id}`}>
+              {unitOptions.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </datalist>
           </label>
 
           <label>

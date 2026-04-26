@@ -1,9 +1,12 @@
 import {
-  BUDGET_BUCKET_OPTIONS,
-  VARIABLE_EXPENSE_CATEGORY_OPTIONS,
+  getBudgetBucketOptions,
+  getCategoryOptions,
 } from "../../constants/inventory.js";
 
 function VariableExpenseFormFields({ formData, onChange, submitLabel }) {
+  const variableExpenseCategories = getCategoryOptions("variable_expense");
+  const budgetBucketOptions = getBudgetBucketOptions();
+
   return (
     <>
       <label>
@@ -27,7 +30,7 @@ function VariableExpenseFormFields({ formData, onChange, submitLabel }) {
           value={formData.category}
           onChange={onChange}
         >
-          {VARIABLE_EXPENSE_CATEGORY_OPTIONS.map((option) => (
+          {variableExpenseCategories.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -43,7 +46,7 @@ function VariableExpenseFormFields({ formData, onChange, submitLabel }) {
           value={formData.budget_bucket}
           onChange={onChange}
         >
-          {BUDGET_BUCKET_OPTIONS.map((option) => (
+          {budgetBucketOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

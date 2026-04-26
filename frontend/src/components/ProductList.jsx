@@ -1,14 +1,10 @@
 import { useMemo, useState } from "react";
 import { ProductCard } from "./ProductCard.jsx";
-import { HOME_INVENTORY_CATEGORY_OPTIONS } from "../constants/inventory.js";
-
-const CATEGORY_FILTER_OPTIONS = [
-  { value: "all", label: "Todas" },
-  ...HOME_INVENTORY_CATEGORY_OPTIONS,
-];
+import { getCategoryOptions } from "../constants/inventory.js";
 
 export function ProductList({ products, loading, onUpdate, onDelete }) {
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const categoryFilterOptions = [{ value: "all", label: "Todas" }, ...getCategoryOptions("inventory")];
 
   const visibleProducts = useMemo(() => {
     if (categoryFilter === "all") {
@@ -42,7 +38,7 @@ export function ProductList({ products, loading, onUpdate, onDelete }) {
       </div>
 
       <div className="inventory-controls">
-        {CATEGORY_FILTER_OPTIONS.map((option) => (
+        {categoryFilterOptions.map((option) => (
           <button
             key={option.value}
             type="button"
