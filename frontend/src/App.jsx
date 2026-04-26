@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import { ProductForm } from "./components/ProductForm.jsx";
 import { ProductList } from "./components/ProductList.jsx";
 import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
+import { ReportsView } from "./components/ReportsView.jsx";
 import { getMonthlyFinanceSummary, listIncomes, listProducts, listVariableExpenses } from "./api.js";
 import {
   CATEGORY_LABELS,
@@ -13,6 +14,7 @@ import {
 
 const MODULES = [
   { key: "dashboard", label: "Dashboard" },
+  { key: "reports", label: "Reportes" },
   { key: "inventory", label: "Inventario" },
   { key: "purchases", label: "Compras" },
   { key: "expenses", label: "Gastos" },
@@ -30,19 +32,6 @@ const CATEGORY_UNIT_COST = {
   services: 12,
   assets: 11.6,
   leisure: 7.9,
-};
-
-const CATEGORY_COLOR_MAP = {
-  food: "#3f8efc",
-  cleaning: "#38b67a",
-  hygiene: "#f5a524",
-  home: "#ef5f6c",
-  mobility: "#6f6cf5",
-  maintenance: "#00a39a",
-  subscription: "#f06f9b",
-  services: "#2f9bd8",
-  assets: "#c9861e",
-  leisure: "#8673f2",
 };
 
 const FREQUENCY_WEIGHT = {
@@ -88,28 +77,6 @@ function DashboardView({
   totalStockUnits,
   categoryDistribution,
 }) {
-  const categoryTotal = Object.values(categoryDistribution).reduce((acc, value) => acc + value, 0);
-  const pieStops = Object.keys(categoryDistribution).reduce(
-    (acc, key) => {
-      const value = categoryDistribution[key] || 0;
-      const ratio = categoryTotal > 0 ? (value / categoryTotal) * 100 : 0;
-      const nextStop = acc.stop + ratio;
-      acc.segments.push(`${acc.colorMap[key] || "#b4bfd1"} ${acc.stop}% ${nextStop}%`);
-      acc.stop = nextStop;
-      return acc;
-    },
-    {
-      stop: 0,
-      segments: [],
-      colorMap: CATEGORY_COLOR_MAP,
-    }
-  );
-
-  const pieBackground =
-    pieStops.segments.length > 0
-      ? `conic-gradient(${pieStops.segments.join(",")})`
-      : "conic-gradient(#dce4f3 0 100%)";
-
   return (
     <section className="module-content fade-in">
       <div className="section-header">
@@ -175,46 +142,6 @@ function DashboardView({
               : `${financeSummary.expense_percentage}%`}
           </h3>
           <small>Saldo: {formatGuarani(financeSummary.remaining_balance)}</small>
-        </article>
-      </div>
-
-      <div className="charts-grid">
-        <article className="panel chart-panel">
-          <div className="panel-title">
-            <h3>Consumo por categoria</h3>
-          </div>
-          <div className="bars-list">
-            {Object.entries(categoryDistribution).map(([category, value]) => {
-              const max = Math.max(...Object.values(categoryDistribution), 1);
-              const width = `${(value / max) * 100}%`;
-              return (
-                <div key={category} className="bar-row">
-                  <span>{CATEGORY_LABELS[category]}</span>
-                  <div className="bar-track">
-                    <div className="bar-value" style={{ width }} />
-                  </div>
-                  <strong>{value}</strong>
-                </div>
-              );
-            })}
-          </div>
-        </article>
-
-        <article className="panel chart-panel">
-          <div className="panel-title">
-            <h3>Distribucion del inventario</h3>
-          </div>
-          <div className="pie-wrap">
-            <div className="pie-chart" style={{ background: pieBackground }} />
-            <div className="pie-legend">
-              {Object.entries(categoryDistribution).map(([category, value]) => (
-                <p key={category}>
-                  <span className={`legend-dot ${category}`} />
-                  {CATEGORY_LABELS[category]}: {value}
-                </p>
-              ))}
-            </div>
-          </div>
         </article>
       </div>
 
@@ -287,7 +214,7 @@ function App() {
     setIsModalOpen(false);
   };
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listProducts();
@@ -298,9 +225,9 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadFinanceData = async () => {
+  const loadFinanceData = useCallback(async () => {
     try {
       const [incomeData, variableExpenseData, summaryData] = await Promise.all([
         listIncomes(),
@@ -318,15 +245,15 @@ function App() {
       setIncomes([]);
       setVariableExpenses([]);
     }
-  };
+  }, []);
 
-  const refreshAllData = async () => {
+  const refreshAllData = useCallback(async () => {
     await Promise.all([loadProducts(), loadFinanceData()]);
-  };
+  }, [loadFinanceData, loadProducts]);
 
   useEffect(() => {
     refreshAllData();
-  }, []);
+  }, [refreshAllData]);
 
   useEffect(() => {
     const handleEsc = (event) => {
@@ -395,6 +322,7 @@ function App() {
   );
 
   const currentModuleLabel = MODULES.find((module) => module.key === route)?.label || "Dashboard";
+  const showSearch = route === "dashboard" || route === "inventory";
 
   return (
     <div className="app-shell">
@@ -426,13 +354,15 @@ function App() {
           </div>
 
           <div className="topbar-actions">
-            <input
-              type="search"
-              placeholder="Buscar por nombre o categoria"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              aria-label="Buscar en inventario"
-            />
+            {showSearch && (
+              <input
+                type="search"
+                placeholder="Buscar por nombre o categoria"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Buscar en inventario"
+              />
+            )}
 
             {route === "inventory" && (
               <button
@@ -457,6 +387,16 @@ function App() {
             financeSummary={financeSummary}
             totalStockUnits={totalStockUnits}
             categoryDistribution={categoryDistribution}
+          />
+        )}
+
+        {route === "reports" && (
+          <ReportsView
+            products={homeProducts}
+            incomes={incomes}
+            variableExpenses={variableExpenses}
+            financeSummary={financeSummary}
+            fixedExpenseProducts={fixedExpenseProducts}
           />
         )}
 

@@ -1,4 +1,27 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+:root {
+  --bg-base: #0f1117;
+  --bg-surface: #1a1d27;
+  --bg-elevated: #22263a;
+  --bg-hover: #1e2236;
+  --border: #2a2d3e;
+  --border-hover: #3a3f55;
+  --text-primary: #e8eaf0;
+  --text-secondary: #7b8099;
+  --text-muted: #4a4e65;
+  --accent: #4f7cff;
+  --accent-dim: #1e2d5a;
+  --success: #22c55e;
+  --success-dim: #0d2e1a;
+  --warning: #f59e0b;
+  --warning-dim: #2a1f07;
+  --danger: #ef4444;
+  --danger-dim: #2a0d0d;
+  --sidebar-bg: #0c0e16;
+  --sidebar-active: #1a2040;
+  --font-size-base: 13px;
+  --line-height: 1.4;
+  --font-family: "DM Sans", "Inter", system-ui, sans-serif;
+}
 
 * {
   box-sizing: border-box;
@@ -12,10 +35,12 @@ body,
 }
 
 body {
-  font-family: "Inter", "Roboto", "Segoe UI", sans-serif;
-  color: #1a2433;
-  background: #f7f8fa;
-  line-height: 1.45;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  color: var(--text-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
