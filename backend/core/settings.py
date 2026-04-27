@@ -22,6 +22,10 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
 
+    "apps.configuration",
+    "apps.purchases",
+    "apps.expenses",
+    "apps.reports",
     "apps.inventory",
 ]
 
