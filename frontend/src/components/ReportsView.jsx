@@ -51,17 +51,58 @@ function buildPoints(values, width, height, padding) {
     .join(" ");
 }
 
+function buildAreaPath(values, width, height, padding) {
+  if (!values.length) {
+    return "";
+  }
+
+  const maxValue = Math.max(...values, 1);
+  const innerWidth = width - padding * 2;
+  const innerHeight = height - padding * 2;
+
+  const points = values.map((value, index) => {
+    const x = padding + (values.length === 1 ? innerWidth / 2 : (index * innerWidth) / (values.length - 1));
+    const y = height - padding - (value / maxValue) * innerHeight;
+    return [x, y];
+  });
+
+  const [firstX, firstY] = points[0];
+  const [lastX] = points[points.length - 1];
+
+  return [
+    `M ${firstX} ${height - padding}`,
+    `L ${firstX} ${firstY}`,
+    ...points.slice(1).map(([x, y]) => `L ${x} ${y}`),
+    `L ${lastX} ${height - padding}`,
+    "Z",
+  ].join(" ");
+}
+
+function formatDelta(value) {
+  if (value === 0) {
+    return "En objetivo";
+  }
+
+  return `${value > 0 ? "+" : ""}${formatCompactGuarani(value)}`;
+}
+
 function TrendChart({ data }) {
   const width = 640;
-  const height = 260;
-  const padding = 24;
+  const height = 180;
+  const padding = 20;
   const expenseValues = data.map((item) => Number(item.estimated_expenses || 0));
   const incomeValues = data.map((item) => Number(item.total_income || 0));
   const expensePoints = buildPoints(expenseValues, width, height, padding);
   const incomePoints = buildPoints(incomeValues, width, height, padding);
+  const expenseArea = buildAreaPath(expenseValues, width, height, padding);
+  const incomeArea = buildAreaPath(incomeValues, width, height, padding);
+  const latest = data.at(-1);
+  const averageIncome = incomeValues.reduce((sum, value) => sum + value, 0) / Math.max(incomeValues.length, 1);
+  const averageExpenses = expenseValues.reduce((sum, value) => sum + value, 0) / Math.max(expenseValues.length, 1);
+  const averageBalance = averageIncome - averageExpenses;
 
   return (
-    <article className="panel reports-panel reports-panel-wide">
+    <article className="panel reports-panel reports-panel-wide trend-chart-card">
       <div className="panel-title">
         <div>
           <h3>Tendencia financiera</h3>
@@ -69,30 +110,70 @@ function TrendChart({ data }) {
         </div>
       </div>
 
-      <svg className="trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Tendencia de ingresos y gastos">
-        {[0.25, 0.5, 0.75, 1].map((tick) => (
-          <line
-            key={tick}
-            x1={padding}
-            x2={width - padding}
-            y1={height - padding - (height - padding * 2) * tick}
-            y2={height - padding - (height - padding * 2) * tick}
-            className="trend-grid-line"
-          />
-        ))}
-        {expensePoints && <polyline points={expensePoints} fill="none" stroke="var(--accent)" strokeWidth="3" />}
-        {incomePoints && <polyline points={incomePoints} fill="none" stroke="var(--success)" strokeWidth="3" />}
-      </svg>
+      <div className="trend-chart-shell">
+        <div>
+          <svg className="trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Tendencia de ingresos y gastos">
+            <defs>
+              <linearGradient id="incomeArea" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="var(--success)" stopOpacity="0.34" />
+                <stop offset="100%" stopColor="var(--success)" stopOpacity="0.04" />
+              </linearGradient>
+              <linearGradient id="expenseArea" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.03" />
+              </linearGradient>
+            </defs>
 
-      <div className="trend-axis-labels">
-        {data.map((item) => (
-          <span key={`${item.year}-${item.month}`}>{item.label}</span>
-        ))}
-      </div>
+            {[0.25, 0.5, 0.75, 1].map((tick) => (
+              <line
+                key={tick}
+                x1={padding}
+                x2={width - padding}
+                y1={height - padding - (height - padding * 2) * tick}
+                y2={height - padding - (height - padding * 2) * tick}
+                className="trend-grid-line"
+              />
+            ))}
 
-      <div className="reports-legend">
-        <span><i className="legend-swatch income" />Ingresos</span>
-        <span><i className="legend-swatch expenses" />Gasto estimado</span>
+            {expenseArea && <path d={expenseArea} fill="url(#expenseArea)" />}
+            {incomeArea && <path d={incomeArea} fill="url(#incomeArea)" />}
+            {expensePoints && <polyline points={expensePoints} fill="none" stroke="var(--accent)" strokeWidth="3" strokeLinejoin="round" />}
+            {incomePoints && <polyline points={incomePoints} fill="none" stroke="var(--success)" strokeWidth="3" strokeLinejoin="round" />}
+          </svg>
+
+          <div className="trend-axis-labels">
+            {data.map((item) => (
+              <span key={`${item.year}-${item.month}`}>{item.label}</span>
+            ))}
+          </div>
+
+          <div className="reports-legend compact">
+            <span><i className="legend-swatch income" />Ingresos</span>
+            <span><i className="legend-swatch expenses" />Gasto estimado</span>
+          </div>
+        </div>
+
+        <div className="trend-insights">
+          <div className="trend-insight accent-green-soft">
+            <span>Promedio ingreso</span>
+            <strong>{formatCompactGuarani(averageIncome)}</strong>
+          </div>
+          <div className="trend-insight accent-blue-soft">
+            <span>Promedio gasto</span>
+            <strong>{formatCompactGuarani(averageExpenses)}</strong>
+          </div>
+          <div className={`trend-insight ${averageBalance >= 0 ? "accent-green-soft" : "accent-red-soft"}`}>
+            <span>Balance medio</span>
+            <strong>{formatCompactGuarani(averageBalance)}</strong>
+          </div>
+          {latest ? (
+            <div className="trend-insight neutral-soft">
+              <span>Corte actual</span>
+              <strong>{latest.label}</strong>
+              <small>{formatCompactGuarani(Number(latest.total_income || 0) - Number(latest.estimated_expenses || 0))}</small>
+            </div>
+          ) : null}
+        </div>
       </div>
     </article>
   );
@@ -110,37 +191,29 @@ function BudgetComparisonChart({ summary }) {
       <div className="panel-title">
         <div>
           <h3>Regla 50 / 30 / 20</h3>
-          <p>Comparacion entre objetivo y ejecucion real.</p>
+          <p>Lectura compacta entre meta y ejecucion real.</p>
         </div>
       </div>
 
-      <div className="comparison-list">
+      <div className="budget-bullet-list">
         {rows.map((row) => {
           const target = Number(summary.rule_50_30_20?.targets?.[row.key] || 0);
           const actual = Number(summary.rule_50_30_20?.actuals?.[row.key] || 0);
-          const max = Math.max(target, actual, 1);
           const delta = Number(summary.rule_50_30_20?.variance?.[row.key] || 0);
+          const max = Math.max(target, actual, 1);
+          const actualWidth = Math.max(8, (actual / max) * 100);
+          const targetLeft = Math.max(0, Math.min((target / max) * 100, 100));
           return (
-            <div key={row.key} className="comparison-row">
-              <div className="comparison-head">
+            <div key={row.key} className="budget-bullet-row">
+              <div className="budget-bullet-head">
                 <strong>{row.label}</strong>
-                <span>{delta > 0 ? "Por encima" : delta < 0 ? "Por debajo" : "En objetivo"}</span>
+                <span>{formatDelta(delta)}</span>
               </div>
-              <div className="comparison-bars">
-                <div>
-                  <small>Meta</small>
-                  <div className="comparison-track">
-                    <div className="comparison-fill target" style={{ width: `${(target / max) * 100}%` }} />
-                  </div>
-                </div>
-                <div>
-                  <small>Actual</small>
-                  <div className="comparison-track">
-                    <div className={`comparison-fill ${delta > 0 ? "danger" : "success"}`} style={{ width: `${(actual / max) * 100}%` }} />
-                  </div>
-                </div>
+              <div className="budget-bullet-track">
+                <div className={`budget-bullet-fill ${delta > 0 ? "danger" : "success"}`} style={{ width: `${actualWidth}%` }} />
+                <span className="budget-bullet-marker" style={{ left: `${targetLeft}%` }} aria-hidden="true" />
               </div>
-              <div className="comparison-values">
+              <div className="budget-bullet-values">
                 <span>{formatCompactGuarani(target)}</span>
                 <span>{formatCompactGuarani(actual)}</span>
               </div>
@@ -158,39 +231,56 @@ function ExpenseCompositionChart({ summary }) {
     { key: "fixed_estimated_expenses", label: "Fijos", color: "#ef7d57" },
     { key: "variable_expenses", label: "Variables", color: "var(--success)" },
   ];
-  const total = Math.max(Number(summary.estimated_expenses || 0), 1);
+  const rawTotal = Number(summary.estimated_expenses || 0);
+  const total = Math.max(rawTotal, 1);
+  let currentAngle = 0;
+  const gradientStops = segments
+    .map((segment) => {
+      const amount = Number(summary[segment.key] || 0);
+      const nextAngle = currentAngle + (amount / total) * 360;
+      const stop = `${segment.color} ${currentAngle}deg ${nextAngle}deg`;
+      currentAngle = nextAngle;
+      return stop;
+    })
+    .join(", ");
 
   return (
     <article className="panel reports-panel">
       <div className="panel-title">
         <div>
           <h3>Composicion del gasto mensual</h3>
-          <p>Distribucion de lo que hoy consume tu presupuesto.</p>
+          <p>Lectura visual compacta del presupuesto consumido.</p>
         </div>
       </div>
 
-      <div className="stacked-bar">
-        {segments.map((segment) => (
-          <span
-            key={segment.key}
-            style={{ width: `${(Number(summary[segment.key] || 0) / total) * 100}%`, background: segment.color }}
-          />
-        ))}
-      </div>
-
-      <div className="stacked-list">
-        {segments.map((segment) => (
-          <div key={segment.key} className="stacked-row">
-            <div>
-              <i className="legend-swatch" style={{ background: segment.color }} />
-              <strong>{segment.label}</strong>
-            </div>
-            <span>{formatCurrency(summary[segment.key])}</span>
+      <div className="composition-wrap">
+        <div
+          className="composition-ring"
+          style={{ background: `conic-gradient(${gradientStops || "var(--bg-elevated) 0deg 360deg"})` }}
+          aria-hidden="true"
+        >
+          <div>
+            <strong>{formatCompactGuarani(rawTotal)}</strong>
+            <span>Total</span>
           </div>
-        ))}
-        <div className="stacked-row total">
-          <strong>Total estimado</strong>
-          <span>{formatCurrency(summary.estimated_expenses)}</span>
+        </div>
+
+        <div className="stacked-list compact">
+          {segments.map((segment) => {
+            const amount = Number(summary[segment.key] || 0);
+            const share = Math.round((amount / total) * 100);
+
+            return (
+              <div key={segment.key} className="stacked-row compact">
+                <div>
+                  <i className="legend-swatch" style={{ background: segment.color }} />
+                  <strong>{segment.label}</strong>
+                </div>
+                <span>{share}%</span>
+                <small>{formatCurrency(amount)}</small>
+              </div>
+            );
+          })}
         </div>
       </div>
     </article>
@@ -210,7 +300,8 @@ function InventoryCategoryChart({ products }) {
         label: getCategoryLabel(category),
         total,
       }))
-      .sort((left, right) => right.total - left.total);
+      .sort((left, right) => right.total - left.total)
+      .slice(0, 4);
   }, [products]);
 
   const max = Math.max(...rows.map((row) => row.total), 1);
@@ -253,7 +344,7 @@ function IncomeSourcesChart({ incomes }) {
     return Object.entries(grouped)
       .map(([source, total]) => ({ source, total }))
       .sort((left, right) => right.total - left.total)
-      .slice(0, 5);
+      .slice(0, 4);
   }, [incomes]);
 
   const max = Math.max(...rows.map((row) => row.total), 1);
