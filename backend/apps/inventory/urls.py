@@ -1,9 +1,11 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
+	FinancialEventListView,
 	FixedExpenseViewSet,
 	IncomeViewSet,
 	InventorySettingsView,
+	MonthlyCloseView,
 	MonthlyFinanceSummaryView,
 	ProductViewSet,
 	VariableExpenseViewSet,
@@ -30,6 +32,8 @@ urlpatterns = [
 		VariableExpenseViewSet.as_view({"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}),
 		name="variable-expense-detail",
 	),
+	path("financial-events/", FinancialEventListView.as_view(), name="financial-event-list"),
+	path("monthly-closes/", MonthlyCloseView.as_view(), name="monthly-close-list"),
 	path("settings/", InventorySettingsView.as_view(), name="inventory-settings"),
 	path("monthly-finance-summary/", MonthlyFinanceSummaryView.as_view(), name="monthly-finance-summary"),
 	*router.urls,

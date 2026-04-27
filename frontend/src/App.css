@@ -842,6 +842,83 @@
   margin-bottom: 12px;
 }
 
+.finance-timeline-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.finance-timeline-title {
+  align-items: flex-start;
+}
+
+.finance-timeline-title p,
+.compact-title + p,
+.financial-event-row p,
+.financial-close-card small,
+.financial-event-row small {
+  color: var(--text-soft);
+}
+
+.financial-close-grid,
+.financial-timeline-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.financial-close-card,
+.financial-close-form {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.financial-close-form {
+  align-content: start;
+}
+
+.financial-close-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.financial-event-list,
+.financial-close-list {
+  display: grid;
+  gap: 10px;
+}
+
+.financial-event-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.financial-event-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.financial-event-row strong {
+  margin: 0;
+}
+
+.empty-history {
+  color: var(--text-soft);
+}
+
+.close-row {
+  background: var(--surface-elevated);
+}
+
 .inventory-stats {
   display: flex;
   gap: 8px;

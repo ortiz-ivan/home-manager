@@ -3,7 +3,7 @@ import {
   getCategoryOptions,
 } from "../../constants/inventory.js";
 
-function VariableExpenseFormFields({ formData, onChange, submitLabel }) {
+function VariableExpenseFormFields({ formData, onChange, submitLabel, requireChangeReason = false }) {
   const variableExpenseCategories = getCategoryOptions("variable_expense");
   const budgetBucketOptions = getBudgetBucketOptions();
 
@@ -88,6 +88,19 @@ function VariableExpenseFormFields({ formData, onChange, submitLabel }) {
         />
       </label>
 
+      <label>
+        Motivo del cambio
+        <input
+          name="change_reason"
+          type="text"
+          maxLength="255"
+          required={requireChangeReason}
+          value={formData.change_reason}
+          onChange={onChange}
+          placeholder={requireChangeReason ? "Explica por que editas este gasto" : "Alta inicial, ajuste, correccion..."}
+        />
+      </label>
+
       <button className="btn btn-primary" type="submit">
         {submitLabel}
       </button>
@@ -106,6 +119,7 @@ export function VariableExpenseModal({
   message,
   isError,
   submitLabel,
+  requireChangeReason,
 }) {
   if (!isOpen) {
     return null;
@@ -129,7 +143,12 @@ export function VariableExpenseModal({
           </div>
 
           <form onSubmit={onSubmit} className="form-grid">
-            <VariableExpenseFormFields formData={formData} onChange={onChange} submitLabel={submitLabel} />
+            <VariableExpenseFormFields
+              formData={formData}
+              onChange={onChange}
+              submitLabel={submitLabel}
+              requireChangeReason={requireChangeReason}
+            />
           </form>
 
           {message && <p className={`message ${isError ? "error" : ""}`}>{message}</p>}

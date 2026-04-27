@@ -21,6 +21,7 @@ export function createIncomeFormState(date) {
     amount: "",
     source: "",
     notes: "",
+    change_reason: "",
     date,
   };
 }
@@ -33,6 +34,7 @@ export function createVariableExpenseFormState(date) {
     budget_bucket: getBudgetBucketForCategory(firstCategory),
     description: "",
     notes: "",
+    change_reason: "",
     date,
   };
 }

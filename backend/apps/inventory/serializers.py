@@ -2,9 +2,11 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from .models import (
+    FinancialEvent,
     FixedExpense,
     Income,
     InventorySettings,
+    MonthlyClose,
     Product,
     VariableExpense,
     get_budget_bucket_values,
@@ -184,6 +186,39 @@ class BudgetRuleSummarySerializer(serializers.Serializer):
     variance = BudgetBucketSummarySerializer()
 
 
+class MonthlyCloseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlyClose
+        fields = ["id", "month", "year", "notes", "summary_snapshot", "created_at"]
+        read_only_fields = ["id", "summary_snapshot", "created_at"]
+
+
+class FinancialEventSerializer(serializers.ModelSerializer):
+    entity_label = serializers.CharField(source="get_entity_type_display", read_only=True)
+    action_label = serializers.CharField(source="get_action_display", read_only=True)
+
+    class Meta:
+        model = FinancialEvent
+        fields = [
+            "id",
+            "entity_type",
+            "entity_label",
+            "action",
+            "action_label",
+            "entity_id",
+            "title",
+            "amount",
+            "effective_date",
+            "month",
+            "year",
+            "reason",
+            "previous_data",
+            "current_data",
+            "metadata",
+            "created_at",
+        ]
+
+
 class MonthlyFinanceSummarySerializer(serializers.Serializer):
     month = serializers.IntegerField()
     year = serializers.IntegerField()
@@ -195,6 +230,7 @@ class MonthlyFinanceSummarySerializer(serializers.Serializer):
     expense_percentage = serializers.FloatField(allow_null=True)
     remaining_balance = serializers.FloatField()
     rule_50_30_20 = BudgetRuleSummarySerializer()
+    monthly_close = MonthlyCloseSerializer(allow_null=True)
 
 
 class InventoryCategorySettingsSerializer(serializers.Serializer):

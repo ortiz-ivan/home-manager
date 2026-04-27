@@ -14,6 +14,7 @@ function createInitialFormData() {
     budget_bucket: getBudgetBucketForCategory(firstCategory),
     monthly_amount: "",
     next_due_date: "",
+    change_reason: "",
   };
 }
 
@@ -24,6 +25,7 @@ function normalizeFormData(initialData) {
     ...(initialData || {}),
     monthly_amount: initialData?.monthly_amount ?? "",
     next_due_date: initialData?.next_due_date || "",
+    change_reason: "",
     budget_bucket:
       initialData?.budget_bucket || getBudgetBucketForCategory(initialData?.category || initialDefaults.category),
   };
@@ -76,6 +78,7 @@ export function ExpenseProductForm({
         budget_bucket: formData.budget_bucket,
         monthly_amount: monthlyAmount,
         next_due_date: formData.next_due_date || null,
+        change_reason: formData.change_reason,
       };
 
       if (expenseProductId) {
@@ -141,6 +144,19 @@ export function ExpenseProductForm({
         <label>
           Proximo vencimiento
           <input name="next_due_date" type="date" value={formData.next_due_date} onChange={handleChange} />
+        </label>
+
+        <label>
+          Motivo del cambio
+          <input
+            name="change_reason"
+            type="text"
+            maxLength="255"
+            required={Boolean(expenseProductId)}
+            value={formData.change_reason}
+            onChange={handleChange}
+            placeholder={expenseProductId ? "Explica por que editas este gasto fijo" : "Alta inicial, ajuste, correccion..."}
+          />
         </label>
 
         <button className="btn btn-primary" type="submit">

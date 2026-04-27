@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   createIncome,
+  createMonthlyClose,
   createVariableExpense,
   deleteIncome,
   deleteVariableExpense,
@@ -8,33 +9,47 @@ import {
   updateIncome,
   updateVariableExpense,
 } from "../api.js";
+import { getBudgetBucketForCategory } from "../constants/inventory.js";
 import { ExpenseProductForm } from "./ExpenseProductForm.jsx";
-import { FixedExpenseDetailModal } from "./expenses/FixedExpenseDetailModal.jsx";
+import { FinancialTimelineSection } from "./expenses/FinancialTimelineSection.jsx";
 import { FinanceSummaryCards } from "./expenses/FinanceSummaryCards.jsx";
+import { FixedExpenseDetailModal } from "./expenses/FixedExpenseDetailModal.jsx";
 import { FixedExpensesSection } from "./expenses/FixedExpensesSection.jsx";
 import { IncomeModal } from "./expenses/IncomeModal.jsx";
 import { IncomeSection } from "./expenses/IncomeSection.jsx";
-import { VariableExpenseModal } from "./expenses/VariableExpenseModal.jsx";
-import { VariableExpensesSection } from "./expenses/VariableExpensesSection.jsx";
 import {
   createIncomeFormState,
   createVariableExpenseFormState,
   formatGuarani,
   toInputDate,
 } from "./expenses/utils.js";
-import { getBudgetBucketForCategory } from "../constants/inventory.js";
+import { VariableExpenseModal } from "./expenses/VariableExpenseModal.jsx";
+import { VariableExpensesSection } from "./expenses/VariableExpensesSection.jsx";
 
-export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpenses, onDataChanged }) {
-  const today = useMemo(() => new Date(), []);
-  const todayInputDate = useMemo(() => toInputDate(today), [today]);
+export function ExpensesPanel({
+  incomes,
+  summary,
+  expenseProducts,
+  variableExpenses,
+  financialEvents,
+  monthlyCloses,
+  onDataChanged,
+}) {
+  const activePeriodInputDate = useMemo(() => {
+    if (summary?.year && summary?.month) {
+      return toInputDate(new Date(summary.year, summary.month - 1, 1));
+    }
+
+    return toInputDate(new Date());
+  }, [summary?.month, summary?.year]);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isEditIncomeModalOpen, setIsEditIncomeModalOpen] = useState(false);
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(false);
   const [isEditVariableModalOpen, setIsEditVariableModalOpen] = useState(false);
   const [isEditFixedExpenseModalOpen, setIsEditFixedExpenseModalOpen] = useState(false);
-  const [formData, setFormData] = useState(() => createIncomeFormState(todayInputDate));
-  const [variableForm, setVariableForm] = useState(() => createVariableExpenseFormState(todayInputDate));
+  const [formData, setFormData] = useState(() => createIncomeFormState(activePeriodInputDate));
+  const [variableForm, setVariableForm] = useState(() => createVariableExpenseFormState(activePeriodInputDate));
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [variableMessage, setVariableMessage] = useState("");
@@ -43,16 +58,20 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   const [isFixedExpenseError, setIsFixedExpenseError] = useState(false);
   const [payingExpenseId, setPayingExpenseId] = useState(null);
   const [editingIncomeId, setEditingIncomeId] = useState(null);
-  const [editIncomeForm, setEditIncomeForm] = useState(() => createIncomeFormState(todayInputDate));
+  const [editIncomeForm, setEditIncomeForm] = useState(() => createIncomeFormState(activePeriodInputDate));
   const [editIncomeMessage, setEditIncomeMessage] = useState("");
   const [isEditIncomeError, setIsEditIncomeError] = useState(false);
   const [editingVariableExpenseId, setEditingVariableExpenseId] = useState(null);
-  const [editVariableForm, setEditVariableForm] = useState(() => createVariableExpenseFormState(todayInputDate));
+  const [editVariableForm, setEditVariableForm] = useState(() => createVariableExpenseFormState(activePeriodInputDate));
   const [editVariableMessage, setEditVariableMessage] = useState("");
   const [isEditVariableError, setIsEditVariableError] = useState(false);
   const [editingFixedExpenseId, setEditingFixedExpenseId] = useState(null);
   const [editFixedExpenseForm, setEditFixedExpenseForm] = useState(null);
   const [selectedFixedExpense, setSelectedFixedExpense] = useState(null);
+  const [closeNotes, setCloseNotes] = useState("");
+  const [closeMessage, setCloseMessage] = useState("");
+  const [isCloseError, setIsCloseError] = useState(false);
+  const [isClosingMonth, setIsClosingMonth] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -99,8 +118,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         ...formData,
         amount,
       });
-
-      setFormData(createIncomeFormState(todayInputDate));
+      setFormData(createIncomeFormState(activePeriodInputDate));
       setMessage("Ingreso registrado");
       await onDataChanged();
       setIsIncomeModalOpen(false);
@@ -116,11 +134,18 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       return;
     }
 
+    const changeReason = window.prompt("Motivo de la eliminacion", "Movimiento duplicado o cargado por error")?.trim() || "";
+    if (!changeReason) {
+      setMessage("Debes indicar el motivo de la eliminacion");
+      setIsError(true);
+      return;
+    }
+
     setMessage("");
     setIsError(false);
 
     try {
-      await deleteIncome(income.id);
+      await deleteIncome(income.id, { change_reason: changeReason });
       await onDataChanged();
     } catch (error) {
       setMessage(error.message);
@@ -134,6 +159,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       amount: String(income.amount ?? ""),
       source: income.source || "",
       notes: income.notes || "",
+      change_reason: "",
       date: income.date,
     });
     setEditIncomeMessage("");
@@ -184,7 +210,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         ...variableForm,
         amount,
       });
-      setVariableForm(createVariableExpenseFormState(todayInputDate));
+      setVariableForm(createVariableExpenseFormState(activePeriodInputDate));
       setVariableMessage("Gasto variable registrado");
       await onDataChanged();
       setIsVariableModalOpen(false);
@@ -202,6 +228,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       budget_bucket: expense.budget_bucket || getBudgetBucketForCategory(expense.category),
       description: expense.description || "",
       notes: expense.notes || "",
+      change_reason: "",
       date: expense.date,
     });
     setEditVariableMessage("");
@@ -238,7 +265,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   const openIncomeModal = () => {
     setMessage("");
     setIsError(false);
-    setFormData(createIncomeFormState(todayInputDate));
+    setFormData(createIncomeFormState(activePeriodInputDate));
     setIsIncomeModalOpen(true);
   };
 
@@ -258,7 +285,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   const openVariableModal = () => {
     setVariableMessage("");
     setIsVariableError(false);
-    setVariableForm(createVariableExpenseFormState(todayInputDate));
+    setVariableForm(createVariableExpenseFormState(activePeriodInputDate));
     setIsVariableModalOpen(true);
   };
 
@@ -283,6 +310,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       budget_bucket: expense.budget_bucket || getBudgetBucketForCategory(expense.category),
       monthly_amount: expense.monthly_amount ?? "",
       next_due_date: expense.next_due_date || "",
+      change_reason: "",
     });
     setIsEditFixedExpenseModalOpen(true);
   };
@@ -307,11 +335,18 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       return;
     }
 
+    const changeReason = window.prompt("Motivo de la eliminacion", "Movimiento duplicado o cargado por error")?.trim() || "";
+    if (!changeReason) {
+      setVariableMessage("Debes indicar el motivo de la eliminacion");
+      setIsVariableError(true);
+      return;
+    }
+
     setVariableMessage("");
     setIsVariableError(false);
 
     try {
-      await deleteVariableExpense(expense.id);
+      await deleteVariableExpense(expense.id, { change_reason: changeReason });
       await onDataChanged();
     } catch (error) {
       setVariableMessage(error.message);
@@ -320,12 +355,19 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
   };
 
   const handlePayFixedExpense = async (expense) => {
+    const changeReason = window.prompt("Motivo del pago", "Pago mensual confirmado")?.trim() || "";
+    if (!changeReason) {
+      setFixedExpenseMessage("Debes indicar el motivo del pago");
+      setIsFixedExpenseError(true);
+      return;
+    }
+
     setFixedExpenseMessage("");
     setIsFixedExpenseError(false);
     setPayingExpenseId(expense.id);
 
     try {
-      await payFixedExpense(expense.id);
+      await payFixedExpense(expense.id, { change_reason: changeReason });
       setFixedExpenseMessage(`Pago registrado para ${expense.name}`);
       await onDataChanged();
     } catch (error) {
@@ -333,6 +375,32 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
       setIsFixedExpenseError(true);
     } finally {
       setPayingExpenseId(null);
+    }
+  };
+
+  const handleCloseNotesChange = (event) => {
+    setCloseNotes(event.target.value);
+  };
+
+  const handleCloseMonth = async () => {
+    setCloseMessage("");
+    setIsCloseError(false);
+    setIsClosingMonth(true);
+
+    try {
+      await createMonthlyClose({
+        month: summary.month,
+        year: summary.year,
+        notes: closeNotes,
+      });
+      setCloseMessage("Cierre mensual registrado");
+      setCloseNotes("");
+      await onDataChanged();
+    } catch (error) {
+      setCloseMessage(error.message);
+      setIsCloseError(true);
+    } finally {
+      setIsClosingMonth(false);
     }
   };
 
@@ -344,25 +412,13 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
           <p>Registra tus ingresos y revisa que porcentaje de tus gastos mensuales ocupan.</p>
         </div>
         <div className="expenses-header-actions">
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => setIsExpenseModalOpen(true)}
-          >
+          <button className="btn btn-primary" type="button" onClick={() => setIsExpenseModalOpen(true)}>
             Agregar gasto fijo
           </button>
-          <button
-            className="btn btn-success"
-            type="button"
-            onClick={openIncomeModal}
-          >
+          <button className="btn btn-success" type="button" onClick={openIncomeModal}>
             Agregar ingreso
           </button>
-          <button
-            className="btn btn-warning"
-            type="button"
-            onClick={openVariableModal}
-          >
+          <button className="btn btn-warning" type="button" onClick={openVariableModal}>
             Agregar gasto variable
           </button>
         </div>
@@ -390,6 +446,18 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         />
       </div>
 
+      <FinancialTimelineSection
+        summary={summary}
+        events={financialEvents}
+        monthlyCloses={monthlyCloses}
+        closeNotes={closeNotes}
+        onCloseNotesChange={handleCloseNotesChange}
+        onCloseMonth={handleCloseMonth}
+        isClosingMonth={isClosingMonth}
+        closeMessage={closeMessage}
+        isCloseError={isCloseError}
+      />
+
       {isExpenseModalOpen && (
         <div
           className="modal-overlay"
@@ -416,7 +484,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
 
       <IncomeModal
         isOpen={isIncomeModalOpen}
-        title="Nuevo ingreso"
+        title="Registrar ingreso"
         ariaLabel="Agregar ingreso"
         formData={formData}
         onChange={handleChange}
@@ -425,11 +493,12 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         message={message}
         isError={isError}
         submitLabel="Guardar ingreso"
+        requireChangeReason={false}
       />
 
       <VariableExpenseModal
         isOpen={isVariableModalOpen}
-        title="Nuevo gasto variable"
+        title="Registrar gasto variable"
         ariaLabel="Agregar gasto variable"
         formData={variableForm}
         onChange={handleVariableChange}
@@ -438,6 +507,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         message={variableMessage}
         isError={isVariableError}
         submitLabel="Guardar gasto"
+        requireChangeReason={false}
       />
 
       <IncomeModal
@@ -451,6 +521,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         message={editIncomeMessage}
         isError={isEditIncomeError}
         submitLabel="Guardar cambios"
+        requireChangeReason
       />
 
       <VariableExpenseModal
@@ -464,6 +535,7 @@ export function ExpensesPanel({ incomes, summary, expenseProducts, variableExpen
         message={editVariableMessage}
         isError={isEditVariableError}
         submitLabel="Guardar cambios"
+        requireChangeReason
       />
 
       {isEditFixedExpenseModalOpen && editFixedExpenseForm && (

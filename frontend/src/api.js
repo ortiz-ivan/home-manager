@@ -85,10 +85,10 @@ export function updateFixedExpense(id, payload) {
   });
 }
 
-export function payFixedExpense(id) {
+export function payFixedExpense(id, payload = {}) {
   return request(`${FIXED_EXPENSES_PATH}${id}/pay/`, {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -103,9 +103,10 @@ export function createIncome(payload) {
   });
 }
 
-export function deleteIncome(id) {
+export function deleteIncome(id, payload = {}) {
   return request(`incomes/${id}/`, {
     method: "DELETE",
+    body: JSON.stringify(payload),
   });
 }
 
@@ -127,9 +128,10 @@ export function createVariableExpense(payload) {
   });
 }
 
-export function deleteVariableExpense(id) {
+export function deleteVariableExpense(id, payload = {}) {
   return request(`variable-expenses/${id}/`, {
     method: "DELETE",
+    body: JSON.stringify(payload),
   });
 }
 
@@ -152,6 +154,34 @@ export function getMonthlyFinanceSummary(month, year) {
 
   const suffix = query.toString() ? `monthly-finance-summary/?${query.toString()}` : "monthly-finance-summary/";
   return request(suffix);
+}
+
+export function listFinancialEvents(month, year, limit = 25) {
+  const query = new URLSearchParams();
+
+  if (month) {
+    query.set("month", String(month));
+  }
+  if (year) {
+    query.set("year", String(year));
+  }
+  if (limit) {
+    query.set("limit", String(limit));
+  }
+
+  const suffix = query.toString() ? `financial-events/?${query.toString()}` : "financial-events/";
+  return request(suffix);
+}
+
+export function listMonthlyCloses() {
+  return request("monthly-closes/");
+}
+
+export function createMonthlyClose(payload) {
+  return request("monthly-closes/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getInventorySettings() {

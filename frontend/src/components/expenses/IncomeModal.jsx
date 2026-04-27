@@ -1,4 +1,4 @@
-function IncomeFormFields({ formData, onChange, submitLabel }) {
+function IncomeFormFields({ formData, onChange, submitLabel, requireChangeReason = false }) {
   return (
     <>
       <label>
@@ -48,6 +48,19 @@ function IncomeFormFields({ formData, onChange, submitLabel }) {
         />
       </label>
 
+      <label>
+        Motivo del cambio
+        <input
+          name="change_reason"
+          type="text"
+          maxLength="255"
+          required={requireChangeReason}
+          value={formData.change_reason}
+          onChange={onChange}
+          placeholder={requireChangeReason ? "Explica por que editas este ingreso" : "Alta inicial, ajuste, correccion..."}
+        />
+      </label>
+
       <button className="btn btn-primary" type="submit">
         {submitLabel}
       </button>
@@ -66,6 +79,7 @@ export function IncomeModal({
   message,
   isError,
   submitLabel,
+  requireChangeReason,
 }) {
   if (!isOpen) {
     return null;
@@ -89,7 +103,12 @@ export function IncomeModal({
           </div>
 
           <form onSubmit={onSubmit} className="form-grid">
-            <IncomeFormFields formData={formData} onChange={onChange} submitLabel={submitLabel} />
+            <IncomeFormFields
+              formData={formData}
+              onChange={onChange}
+              submitLabel={submitLabel}
+              requireChangeReason={requireChangeReason}
+            />
           </form>
 
           {message && <p className={`message ${isError ? "error" : ""}`}>{message}</p>}

@@ -9,8 +9,10 @@ import { SettingsView } from "./components/SettingsView.jsx";
 import {
   getInventorySettings,
   getMonthlyFinanceSummary,
+  listFinancialEvents,
   listFixedExpenses,
   listIncomes,
+  listMonthlyCloses,
   listProducts,
   listVariableExpenses,
   updateInventorySettings,
@@ -176,6 +178,8 @@ function App() {
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [variableExpenses, setVariableExpenses] = useState([]);
+  const [financialEvents, setFinancialEvents] = useState([]);
+  const [monthlyCloses, setMonthlyCloses] = useState([]);
   const [inventorySettings, setInventorySettings] = useState(() => normalizeInventorySettings());
   const [financeSummary, setFinanceSummary] = useState({
     month: new Date().getMonth() + 1,
@@ -218,16 +222,20 @@ function App() {
 
   const loadFinanceData = useCallback(async () => {
     try {
-      const [fixedExpenseData, incomeData, variableExpenseData, summaryData] = await Promise.all([
+      const [fixedExpenseData, incomeData, variableExpenseData, summaryData, financialEventData, monthlyCloseData] = await Promise.all([
         listFixedExpenses(),
         listIncomes(),
         listVariableExpenses(),
         getMonthlyFinanceSummary(),
+        listFinancialEvents(),
+        listMonthlyCloses(),
       ]);
 
       setFixedExpenses(fixedExpenseData || []);
       setIncomes(incomeData || []);
       setVariableExpenses(variableExpenseData || []);
+      setFinancialEvents(financialEventData || []);
+      setMonthlyCloses(monthlyCloseData || []);
       if (summaryData) {
         setFinanceSummary(summaryData);
       }
@@ -236,6 +244,8 @@ function App() {
       setFixedExpenses([]);
       setIncomes([]);
       setVariableExpenses([]);
+      setFinancialEvents([]);
+      setMonthlyCloses([]);
     }
   }, []);
 
@@ -433,6 +443,8 @@ function App() {
             summary={financeSummary}
             expenseProducts={fixedExpenses}
             variableExpenses={variableExpenses}
+            financialEvents={financialEvents}
+            monthlyCloses={monthlyCloses}
             onDataChanged={refreshAllData}
           />
         )}
