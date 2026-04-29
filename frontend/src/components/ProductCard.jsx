@@ -18,6 +18,7 @@ import {
   getTypeForCategory,
   getTypeLabel,
   getUnitOptions,
+  requiresExactQuantity,
 } from "../constants/inventory.js";
 
 export function ProductCard({ product, onUpdate, onDelete }) {
@@ -29,6 +30,26 @@ export function ProductCard({ product, onUpdate, onDelete }) {
   const budgetBucketOptions = getBudgetBucketOptions();
   const budgetBucketLabels = getBudgetBucketLabels();
   const unitOptions = getUnitOptions();
+  const usesExactQuantity = requiresExactQuantity(editData.unit);
+
+  const getActionQuantity = (actionLabel, unit) => {
+    if (!requiresExactQuantity(unit)) {
+      return 1;
+    }
+
+    const response = window.prompt(`Cantidad exacta a ${actionLabel} en ${unit}`, "1.000");
+
+    if (response === null) {
+      return null;
+    }
+
+    const quantity = Number(response);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("Ingresa una cantidad valida mayor a 0.");
+    }
+
+    return quantity;
+  };
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -50,9 +71,17 @@ export function ProductCard({ product, onUpdate, onDelete }) {
 
     try {
       if (action === "consume") {
-        await consumeProduct(product.id, 1);
+        const quantity = getActionQuantity("consumir", product.unit);
+        if (quantity === null) {
+          return;
+        }
+        await consumeProduct(product.id, quantity);
       } else if (action === "buy") {
-        await buyProduct(product.id, 1);
+        const quantity = getActionQuantity("comprar", product.unit);
+        if (quantity === null) {
+          return;
+        }
+        await buyProduct(product.id, quantity);
       } else if (action === "out_of_stock") {
         await markOutOfStock(product.id);
       }
@@ -230,47 +259,46 @@ export function ProductCard({ product, onUpdate, onDelete }) {
           </label>
 
           <label>
-            Stock
-            <input
-              name="stock"
-              type="number"
-              min="0"
-              required
-              value={editData.stock}
-              onChange={handleEditChange}
-            />
-          </label>
-
-          <label>
-            Stock minimo
-            <input
-              name="stock_min"
-              type="number"
-              min="0"
-              required
-              value={editData.stock_min}
-              onChange={handleEditChange}
-            />
-          </label>
-
-          <label>
             Unidad
-            <input
+            <select
               name="unit"
-              type="text"
-              maxLength="40"
-              list={`inventory-unit-options-${product.id}`}
               required
               value={editData.unit}
               onChange={handleEditChange}
-            />
-            <datalist id={`inventory-unit-options-${product.id}`}>
+            >
               {unitOptions.map((unit) => (
                 <option key={unit.value} value={unit.value}>
                   {unit.label}
                 </option>
               ))}
-            </datalist>
+            </select>
+          </label>
+
+          <label>
+            {usesExactQuantity ? "Cantidad exacta" : "Stock"}
+            <input
+              name="stock"
+              type="number"
+              min="0"
+              step={usesExactQuantity ? "0.001" : "1"}
+              required
+              value={editData.stock}
+              onChange={handleEditChange}
+              placeholder={usesExactQuantity ? "Ej: 1.300" : undefined}
+            />
+          </label>
+
+          <label>
+            {usesExactQuantity ? "Cantidad minima" : "Stock minimo"}
+            <input
+              name="stock_min"
+              type="number"
+              min="0"
+              step={usesExactQuantity ? "0.001" : "1"}
+              required
+              value={editData.stock_min}
+              onChange={handleEditChange}
+            />
           </label>
 
           <label>

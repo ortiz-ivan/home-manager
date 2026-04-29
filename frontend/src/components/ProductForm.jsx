@@ -8,6 +8,7 @@ import {
   getTypeForCategory,
   getTypeLabel,
   getUnitOptions,
+  requiresExactQuantity,
 } from "../constants/inventory.js";
 
 function createInitialFormData() {
@@ -34,6 +35,7 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
   const budgetBucketOptions = getBudgetBucketOptions();
   const unitOptions = getUnitOptions();
   const inferredType = getTypeLabel(getTypeForCategory(formData.category)) || "Consumible";
+  const usesExactQuantity = requiresExactQuantity(formData.unit);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -109,33 +111,41 @@ export function ProductForm({ onProductCreated, onClose, compact = true }) {
         </label>
 
         <label>
-          Stock actual
-          <input name="stock" type="number" min="0" required value={formData.stock} onChange={handleChange} />
-        </label>
-
-        <label>
-          Stock minimo
-          <input name="stock_min" type="number" min="0" required value={formData.stock_min} onChange={handleChange} />
-        </label>
-
-        <label>
           Unidad
-          <input
-            name="unit"
-            type="text"
-            maxLength="40"
-            required
-            list="inventory-unit-options"
-            value={formData.unit}
-            onChange={handleChange}
-          />
-          <datalist id="inventory-unit-options">
+          <select name="unit" required value={formData.unit} onChange={handleChange}>
             {unitOptions.map((unit) => (
               <option key={unit.value} value={unit.value}>
                 {unit.label}
               </option>
             ))}
-          </datalist>
+          </select>
+        </label>
+
+        <label>
+          {usesExactQuantity ? "Cantidad exacta inicial" : "Stock actual"}
+          <input
+            name="stock"
+            type="number"
+            min="0"
+            step={usesExactQuantity ? "0.001" : "1"}
+            required
+            value={formData.stock}
+            onChange={handleChange}
+            placeholder={usesExactQuantity ? "Ej: 1.300" : undefined}
+          />
+        </label>
+
+        <label>
+          {usesExactQuantity ? "Cantidad minima" : "Stock minimo"}
+          <input
+            name="stock_min"
+            type="number"
+            min="0"
+            step={usesExactQuantity ? "0.001" : "1"}
+            required
+            value={formData.stock_min}
+            onChange={handleChange}
+          />
         </label>
 
         <label>

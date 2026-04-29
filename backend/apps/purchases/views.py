@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,6 +12,15 @@ from .services import consume_product, mark_product_out_of_stock, restock_produc
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
+    @staticmethod
+    def _parse_quantity(raw_quantity):
+        try:
+            quantity = Decimal(str(raw_quantity if raw_quantity is not None else "1"))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError("La cantidad debe ser un numero valido") from exc
+
+        return quantity
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -37,7 +48,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def consume(self, request, pk=None):
-        quantity = int(request.data.get("quantity", 1))
+        quantity = self._parse_quantity(request.data.get("quantity", 1))
         result, error = self._handle_action(consume_product, pk, quantity)
 
         if error:
@@ -50,7 +61,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def restock(self, request, pk=None):
-        quantity = int(request.data.get("quantity", 1))
+        quantity = self._parse_quantity(request.data.get("quantity", 1))
         result, error = self._handle_action(restock_product, pk, quantity)
 
         if error:

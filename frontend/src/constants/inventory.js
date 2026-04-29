@@ -21,6 +21,8 @@ export const FREQUENCY_LABELS = FREQUENCY_OPTIONS.reduce((acc, option) => {
   return acc;
 }, {});
 
+const EXACT_QUANTITY_UNITS = new Set(["kg", "g", "l", "ml"]);
+
 export const DEFAULT_INVENTORY_SETTINGS = {
   categories: [
     { value: "food", label: "Alimentos", scope: "inventory", type: "consumable", budget_bucket: "needs", fallback_unit_cost: 4.8 },
@@ -150,6 +152,10 @@ export function getBudgetBucketLabels(settings = getCurrentInventorySettings()) 
 
 export function getUnitOptions(settings = getCurrentInventorySettings()) {
   return settings.units;
+}
+
+export function requiresExactQuantity(unit) {
+  return EXACT_QUANTITY_UNITS.has(unit);
 }
 
 export function getCategoryFallbackUnitCost(category, settings = getCurrentInventorySettings()) {

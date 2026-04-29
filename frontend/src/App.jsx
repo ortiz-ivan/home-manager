@@ -385,7 +385,7 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <h1>Home Manager</h1>
+          <h1>DomusOps</h1>
           <p>Control domestico inteligente</p>
         </div>
 

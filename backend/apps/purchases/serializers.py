@@ -7,6 +7,9 @@ from .models import Product
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    stock = serializers.DecimalField(max_digits=12, decimal_places=3, coerce_to_string=False)
+    stock_min = serializers.DecimalField(max_digits=12, decimal_places=3, coerce_to_string=False)
+
     def validate(self, attrs):
         category = attrs.get("category")
 
