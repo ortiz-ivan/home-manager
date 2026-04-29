@@ -67,8 +67,18 @@ export function markOutOfStock(id) {
   });
 }
 
-export function listFixedExpenses() {
-  return request(FIXED_EXPENSES_PATH);
+export function listFixedExpenses(month, year) {
+  const query = new URLSearchParams();
+
+  if (month) {
+    query.set("month", String(month));
+  }
+  if (year) {
+    query.set("year", String(year));
+  }
+
+  const suffix = query.toString() ? `${FIXED_EXPENSES_PATH}?${query.toString()}` : FIXED_EXPENSES_PATH;
+  return request(suffix);
 }
 
 export function createFixedExpense(payload) {
@@ -92,8 +102,18 @@ export function payFixedExpense(id, payload = {}) {
   });
 }
 
-export function listIncomes() {
-  return request("incomes/");
+export function listIncomes(month, year) {
+  const query = new URLSearchParams();
+
+  if (month) {
+    query.set("month", String(month));
+  }
+  if (year) {
+    query.set("year", String(year));
+  }
+
+  const suffix = query.toString() ? `incomes/?${query.toString()}` : "incomes/";
+  return request(suffix);
 }
 
 export function createIncome(payload) {
@@ -117,8 +137,18 @@ export function updateIncome(id, payload) {
   });
 }
 
-export function listVariableExpenses() {
-  return request("variable-expenses/");
+export function listVariableExpenses(month, year) {
+  const query = new URLSearchParams();
+
+  if (month) {
+    query.set("month", String(month));
+  }
+  if (year) {
+    query.set("year", String(year));
+  }
+
+  const suffix = query.toString() ? `variable-expenses/?${query.toString()}` : "variable-expenses/";
+  return request(suffix);
 }
 
 export function createVariableExpense(payload) {

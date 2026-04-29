@@ -4,6 +4,35 @@ import { formatCurrency, getCategoryLabel, getCurrentInventorySettings } from ".
 
 const HISTORY_WINDOW = 6;
 
+function getCurrentPeriod() {
+  const now = new Date();
+  return {
+    month: now.getMonth() + 1,
+    year: now.getFullYear(),
+  };
+}
+
+function getPreviousPeriod() {
+  const now = new Date();
+  const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return {
+    month: previousMonthDate.getMonth() + 1,
+    year: previousMonthDate.getFullYear(),
+  };
+}
+
+function formatMonthInputValue(month, year) {
+  return `${String(year)}-${String(month).padStart(2, "0")}`;
+}
+
+function parseMonthInputValue(value) {
+  const [year, month] = String(value || "").split("-");
+  return {
+    month: Number(month),
+    year: Number(year),
+  };
+}
+
 function formatCompactGuarani(value) {
   const settings = getCurrentInventorySettings();
   return new Intl.NumberFormat(settings.currency.locale, {
@@ -21,8 +50,8 @@ function getMonthLabel(month, year) {
   }).format(new Date(year, month - 1, 1));
 }
 
-function getRecentMonths(total) {
-  const now = new Date();
+function getRecentMonths(total, referenceMonth, referenceYear) {
+  const now = new Date(referenceYear, referenceMonth - 1, 1);
   return Array.from({ length: total }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth() - (total - 1 - index), 1);
     return {
@@ -354,7 +383,7 @@ function IncomeSourcesChart({ incomes }) {
       <div className="panel-title">
         <div>
           <h3>Ingresos por fuente</h3>
-          <p>Entradas del mes actual agrupadas por origen.</p>
+          <p>Entradas del periodo analizado agrupadas por origen.</p>
         </div>
       </div>
 
@@ -427,11 +456,25 @@ function FixedExpensesStatusChart({ fixedExpenseProducts }) {
   );
 }
 
-export function ReportsView({ products, incomes, variableExpenses, financeSummary, fixedExpenseProducts }) {
+export function ReportsView({
+  products,
+  incomes,
+  variableExpenses,
+  financeSummary,
+  fixedExpenseProducts,
+  onSelectPeriod,
+  onResetPeriod,
+}) {
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState("");
-  const months = useMemo(() => getRecentMonths(HISTORY_WINDOW), []);
+  const selectedPeriodValue = formatMonthInputValue(financeSummary.month, financeSummary.year);
+  const currentPeriod = useMemo(() => getCurrentPeriod(), []);
+  const previousPeriod = useMemo(() => getPreviousPeriod(), []);
+  const months = useMemo(
+    () => getRecentMonths(HISTORY_WINDOW, financeSummary.month, financeSummary.year),
+    [financeSummary.month, financeSummary.year]
+  );
 
   useEffect(() => {
     let active = true;
@@ -475,6 +518,30 @@ export function ReportsView({ products, incomes, variableExpenses, financeSummar
 
   const projectedSavings = Number(financeSummary.total_income || 0) - Number(financeSummary.estimated_expenses || 0);
 
+  const handlePeriodInputChange = (event) => {
+    const nextPeriod = parseMonthInputValue(event.target.value);
+
+    if (!nextPeriod.month || !nextPeriod.year) {
+      return;
+    }
+
+    if (typeof onSelectPeriod === "function") {
+      onSelectPeriod(nextPeriod);
+    }
+  };
+
+  const applyQuickPeriod = (period) => {
+    if (typeof onSelectPeriod === "function") {
+      onSelectPeriod(period);
+    }
+  };
+
+  const handleUseLastSixMonths = () => {
+    if (typeof onSelectPeriod === "function") {
+      onSelectPeriod(currentPeriod);
+    }
+  };
+
   return (
     <section className="module-content fade-in reports-view">
       <div className="section-header reports-header">
@@ -495,6 +562,42 @@ export function ReportsView({ products, incomes, variableExpenses, financeSummar
           </article>
         </div>
       </div>
+
+      <article className="panel reports-filter-panel">
+        <div className="panel-title reports-filter-title">
+          <div>
+            <h3>Periodo del reporte</h3>
+            <p>El resumen, las fuentes de ingreso y el cumplimiento de pagos se recalculan para el corte elegido.</p>
+          </div>
+        </div>
+
+        <div className="reports-filter-controls">
+          <label className="reports-period-input">
+            <span>Mes de analisis</span>
+            <input
+              type="month"
+              value={selectedPeriodValue}
+              onChange={handlePeriodInputChange}
+              aria-label="Seleccionar periodo del reporte"
+            />
+          </label>
+
+          <div className="reports-quick-filters" aria-label="Presets de periodo del reporte">
+            <button className="btn btn-outline" type="button" onClick={() => applyQuickPeriod(currentPeriod)}>
+              Este mes
+            </button>
+            <button className="btn btn-outline" type="button" onClick={() => applyQuickPeriod(previousPeriod)}>
+              Mes anterior
+            </button>
+            <button className="btn btn-outline" type="button" onClick={handleUseLastSixMonths}>
+              Ultimos 6 meses
+            </button>
+            <button className="btn btn-outline" type="button" onClick={onResetPeriod}>
+              Periodo activo
+            </button>
+          </div>
+        </div>
+      </article>
 
       <div className="reports-grid">
         {loadingHistory ? (

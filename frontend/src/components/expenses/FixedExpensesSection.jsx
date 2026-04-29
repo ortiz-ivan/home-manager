@@ -6,6 +6,7 @@ export function FixedExpensesSection({
   fixedExpenseMessage,
   isFixedExpenseError,
   payingExpenseId,
+  canMarkAsPaid,
   onOpenDetail,
   onEdit,
   onPay,
@@ -35,7 +36,7 @@ export function FixedExpensesSection({
                   <span className={`status-chip ${item.monthly_payment_status === "paid" ? "paid" : "pending"}`}>
                     {item.monthly_payment_status === "paid" ? "Pagado" : "Por pagar"}
                   </span>
-                  {item.monthly_payment_date && <small>Pago del mes: {item.monthly_payment_date}</small>}
+                  {item.monthly_payment_date && <small>Pago del periodo: {item.monthly_payment_date}</small>}
                 </div>
               </div>
               <div className="fixed-expense-side">
@@ -49,14 +50,17 @@ export function FixedExpensesSection({
                 <button
                   className={item.monthly_payment_status === "paid" ? "btn btn-outline" : "btn btn-success"}
                   type="button"
-                  disabled={item.monthly_payment_status === "paid" || payingExpenseId === item.id}
+                  disabled={!canMarkAsPaid || item.monthly_payment_status === "paid" || payingExpenseId === item.id}
                   onClick={() => onPay(item)}
+                  title={!canMarkAsPaid ? "Solo puedes registrar pagos en el mes calendario actual" : undefined}
                 >
                   {payingExpenseId === item.id
                     ? "Guardando..."
                     : item.monthly_payment_status === "paid"
                       ? "Pagado"
-                      : "Marcar pagado"}
+                      : canMarkAsPaid
+                        ? "Marcar pagado"
+                        : "Solo mes actual"}
                 </button>
               </div>
             </div>

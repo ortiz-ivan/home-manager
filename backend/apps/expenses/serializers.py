@@ -19,17 +19,27 @@ class FixedExpenseSerializer(serializers.ModelSerializer):
     payment_count = serializers.SerializerMethodField()
     total_paid_amount = serializers.SerializerMethodField()
 
-    def _get_current_month_payment(self, obj):
+    def _get_payment_period(self):
+        payment_month = self.context.get("payment_month")
+        payment_year = self.context.get("payment_year")
+
+        if payment_month and payment_year:
+            return payment_month, payment_year
+
         today = timezone.localdate()
+        return today.month, today.year
+
+    def _get_current_month_payment(self, obj):
+        payment_month, payment_year = self._get_payment_period()
         prefetched_payments = getattr(obj, "_prefetched_objects_cache", {}).get("payments")
 
         if prefetched_payments is not None:
             for payment in prefetched_payments:
-                if payment.date.year == today.year and payment.date.month == today.month:
+                if payment.date.year == payment_year and payment.date.month == payment_month:
                     return payment
             return None
 
-        return obj.payments.filter(date__year=today.year, date__month=today.month).first()
+        return obj.payments.filter(date__year=payment_year, date__month=payment_month).first()
 
     def get_monthly_payment_status(self, obj):
         return "paid" if self._get_current_month_payment(obj) else "pending"

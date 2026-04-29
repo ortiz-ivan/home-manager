@@ -34,12 +34,41 @@ class FixedExpenseViewSet(viewsets.ModelViewSet):
     queryset = FixedExpense.objects.all().prefetch_related("payments")
     serializer_class = FixedExpenseSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        action = getattr(self, "action", None)
+
+        if action == "list":
+            return queryset.filter(is_active=True)
+
+        if action == "archived":
+            return queryset.filter(is_active=False)
+
+        return queryset
+
     def _handle_action(self, func, *args):
         try:
             result = func(*args)
             return result, None
         except (TypeError, ValueError) as exc:
             return None, Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+
+        try:
+            month, year = resolve_month_year(self.request.query_params)
+        except ValueError:
+            return context
+
+        context["payment_month"] = month
+        context["payment_year"] = year
+        return context
+
+    @action(detail=False, methods=["get"])
+    def archived(self, request):
+        serializer = self.get_serializer(self.get_queryset(), many=True)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         payload, change_reason = extract_payload_and_reason(request)

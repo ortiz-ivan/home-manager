@@ -54,6 +54,27 @@ function daysBetween(dateString) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function formatPeriodInputValue(month, year) {
+  return `${String(year)}-${String(month).padStart(2, "0")}`;
+}
+
+function getDefaultFinancePeriodValue(summary) {
+  if (summary?.month && summary?.year) {
+    return formatPeriodInputValue(summary.month, summary.year);
+  }
+
+  const now = new Date();
+  return formatPeriodInputValue(now.getMonth() + 1, now.getFullYear());
+}
+
+function parsePeriodInputValue(value) {
+  const [year, month] = String(value || "").split("-");
+  return {
+    month: Number(month),
+    year: Number(year),
+  };
+}
+
 function DashboardView({
   products,
   filteredProducts,
@@ -201,6 +222,7 @@ function App() {
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFinancePeriod, setSelectedFinancePeriod] = useState(null);
 
   const navigateTo = (moduleKey) => {
     setRoute(moduleKey);
@@ -221,13 +243,16 @@ function App() {
   }, []);
 
   const loadFinanceData = useCallback(async () => {
+    const selectedMonth = selectedFinancePeriod?.month;
+    const selectedYear = selectedFinancePeriod?.year;
+
     try {
       const [fixedExpenseData, incomeData, variableExpenseData, summaryData, financialEventData, monthlyCloseData] = await Promise.all([
-        listFixedExpenses(),
-        listIncomes(),
-        listVariableExpenses(),
-        getMonthlyFinanceSummary(),
-        listFinancialEvents(),
+        listFixedExpenses(selectedMonth, selectedYear),
+        listIncomes(selectedMonth, selectedYear),
+        listVariableExpenses(selectedMonth, selectedYear),
+        getMonthlyFinanceSummary(selectedMonth, selectedYear),
+        listFinancialEvents(selectedMonth, selectedYear),
         listMonthlyCloses(),
       ]);
 
@@ -247,7 +272,7 @@ function App() {
       setFinancialEvents([]);
       setMonthlyCloses([]);
     }
-  }, []);
+  }, [selectedFinancePeriod]);
 
   const loadInventoryConfig = useCallback(async () => {
     setLoadingSettings(true);
@@ -336,6 +361,25 @@ function App() {
 
   const currentModuleLabel = MODULES.find((module) => module.key === route)?.label || "Dashboard";
   const showSearch = route === "dashboard" || route === "inventory";
+  const showFinancePeriodSelector = route === "dashboard" || route === "reports" || route === "expenses";
+  const financePeriodValue = selectedFinancePeriod
+    ? formatPeriodInputValue(selectedFinancePeriod.month, selectedFinancePeriod.year)
+    : getDefaultFinancePeriodValue(financeSummary);
+
+  const handleFinancePeriodChange = (event) => {
+    const nextValue = event.target.value;
+
+    if (!nextValue) {
+      setSelectedFinancePeriod(null);
+      return;
+    }
+
+    setSelectedFinancePeriod(parsePeriodInputValue(nextValue));
+  };
+
+  const handleResetFinancePeriod = () => {
+    setSelectedFinancePeriod(null);
+  };
 
   return (
     <div className="app-shell">
@@ -367,6 +411,26 @@ function App() {
           </div>
 
           <div className="topbar-actions">
+            {showFinancePeriodSelector && (
+              <div className="period-control">
+                <label className="period-control-label" htmlFor="finance-period-input">
+                  Periodo financiero
+                </label>
+                <div className="period-control-fields">
+                  <input
+                    id="finance-period-input"
+                    type="month"
+                    value={financePeriodValue}
+                    onChange={handleFinancePeriodChange}
+                    aria-label="Seleccionar periodo financiero"
+                  />
+                  <button className="btn btn-outline" type="button" onClick={handleResetFinancePeriod}>
+                    Periodo activo
+                  </button>
+                </div>
+              </div>
+            )}
+
             {showSearch && (
               <input
                 type="search"
@@ -410,6 +474,8 @@ function App() {
             variableExpenses={variableExpenses}
             financeSummary={financeSummary}
             fixedExpenseProducts={fixedExpenses}
+            onSelectPeriod={setSelectedFinancePeriod}
+            onResetPeriod={handleResetFinancePeriod}
           />
         )}
 
@@ -445,6 +511,7 @@ function App() {
             variableExpenses={variableExpenses}
             financialEvents={financialEvents}
             monthlyCloses={monthlyCloses}
+            selectedPeriod={selectedFinancePeriod}
             onDataChanged={refreshAllData}
           />
         )}

@@ -194,8 +194,8 @@ def calculate_monthly_finance_summary(month: int, year: int):
     frequency_weight = settings_data.get("usage_frequency_weights", {})
     budget_target_ratio = get_budget_bucket_ratio_map(settings_data)
 
-    products = Product.objects.all()
-    fixed_expenses = FixedExpense.objects.all()
+    products = Product.objects.filter(is_active=True)
+    fixed_expenses = FixedExpense.objects.filter(is_active=True)
     home_estimated_expenses = 0.0
     fixed_estimated_expenses = 0.0
     budget_actuals = {

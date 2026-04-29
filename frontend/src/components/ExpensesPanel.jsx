@@ -33,6 +33,7 @@ export function ExpensesPanel({
   variableExpenses,
   financialEvents,
   monthlyCloses,
+  selectedPeriod,
   onDataChanged,
 }) {
   const activePeriodInputDate = useMemo(() => {
@@ -72,6 +73,9 @@ export function ExpensesPanel({
   const [closeMessage, setCloseMessage] = useState("");
   const [isCloseError, setIsCloseError] = useState(false);
   const [isClosingMonth, setIsClosingMonth] = useState(false);
+  const currentDate = new Date();
+  const isCurrentCalendarMonth = summary?.month === currentDate.getMonth() + 1 && summary?.year === currentDate.getFullYear();
+  const isCustomPeriod = Boolean(selectedPeriod);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -412,6 +416,9 @@ export function ExpensesPanel({
           <p>Registra tus ingresos y revisa que porcentaje de tus gastos mensuales ocupan.</p>
         </div>
         <div className="expenses-header-actions">
+          {isCustomPeriod && !isCurrentCalendarMonth && (
+            <span className="status-chip pending">Vista historica</span>
+          )}
           <button className="btn btn-primary" type="button" onClick={() => setIsExpenseModalOpen(true)}>
             Agregar gasto fijo
           </button>
@@ -432,6 +439,7 @@ export function ExpensesPanel({
           fixedExpenseMessage={fixedExpenseMessage}
           isFixedExpenseError={isFixedExpenseError}
           payingExpenseId={payingExpenseId}
+          canMarkAsPaid={isCurrentCalendarMonth}
           onOpenDetail={openFixedExpenseDetail}
           onEdit={handleEditFixedExpense}
           onPay={handlePayFixedExpense}

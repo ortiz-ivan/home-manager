@@ -118,6 +118,22 @@
   align-items: center;
 }
 
+.period-control {
+  display: grid;
+  gap: 6px;
+}
+
+.period-control-label {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.period-control-fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .topbar-actions input {
   min-width: 280px;
   border: 1px solid var(--border);
@@ -165,6 +181,48 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 12px;
+}
+
+.reports-filter-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.reports-filter-title {
+  margin-bottom: 0;
+}
+
+.reports-filter-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.reports-period-input {
+  display: grid;
+  gap: 6px;
+}
+
+.reports-period-input span {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.reports-period-input input {
+  min-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  padding: 8px 10px;
+}
+
+.reports-quick-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .section-header-copy {
@@ -1923,6 +1981,10 @@ select:focus {
   .topbar-actions input {
     min-width: 200px;
   }
+
+  .period-control-fields {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 920px) {
@@ -1959,6 +2021,16 @@ select:focus {
     width: 100%;
   }
 
+  .period-control {
+    width: 100%;
+  }
+
+  .period-control-fields {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .alerts-grid,
   .kpi-grid {
     grid-template-columns: 1fr;
@@ -1969,6 +2041,11 @@ select:focus {
   }
 
   .reports-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reports-filter-controls {
     flex-direction: column;
     align-items: stretch;
   }
@@ -2019,6 +2096,11 @@ select:focus {
 
   .reports-header-kpis {
     grid-template-columns: 1fr;
+  }
+
+  .reports-period-input input {
+    min-width: 0;
+    width: 100%;
   }
 
   .reports-grid,
