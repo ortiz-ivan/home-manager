@@ -26,6 +26,16 @@ def _normalize_change_reason(reason, default_reason="", required=False):
     return value or default_reason
 
 
+def _to_decimal(value, default="0"):
+    if value is None:
+        return Decimal(default)
+
+    if isinstance(value, Decimal):
+        return value
+
+    return Decimal(str(value))
+
+
 def _to_json_ready(value):
     if isinstance(value, Decimal):
         return float(value)
@@ -196,36 +206,36 @@ def calculate_monthly_finance_summary(month: int, year: int):
 
     products = Product.objects.filter(is_active=True)
     fixed_expenses = FixedExpense.objects.filter(is_active=True)
-    home_estimated_expenses = 0.0
-    fixed_estimated_expenses = 0.0
+    home_estimated_expenses = Decimal("0")
+    fixed_estimated_expenses = Decimal("0")
     budget_actuals = {
-        "needs": 0.0,
-        "wants": 0.0,
-        "savings": 0.0,
+        "needs": Decimal("0"),
+        "wants": Decimal("0"),
+        "savings": Decimal("0"),
     }
 
     for product in products:
         budget_bucket = product.budget_bucket or Product.get_budget_bucket_for_category(product.category)
 
-        fallback_cost = get_category_fallback_unit_cost(settings_data, product.category, 4)
-        base_cost = float(product.price) if product.price and product.price > 0 else fallback_cost
-        frequency = float(frequency_weight.get(product.usage_frequency, 1))
-        projected_units = product.stock_min if product.type == "consumable" else 1
+        fallback_cost = _to_decimal(get_category_fallback_unit_cost(settings_data, product.category, 4))
+        base_cost = _to_decimal(product.price) if product.price and product.price > 0 else fallback_cost
+        frequency = _to_decimal(frequency_weight.get(product.usage_frequency, 1), default="1")
+        projected_units = product.stock_min if product.type == "consumable" else Decimal("1")
         estimate = projected_units * base_cost * frequency
         home_estimated_expenses += estimate
         budget_actuals[budget_bucket] += estimate
 
     for expense in fixed_expenses:
-        fixed_amount = float(expense.monthly_amount or 0)
+        fixed_amount = _to_decimal(expense.monthly_amount)
         budget_bucket = expense.budget_bucket or FixedExpense.get_budget_bucket_for_category(expense.category)
         fixed_estimated_expenses += fixed_amount
         budget_actuals[budget_bucket] += fixed_amount
 
-    variable_month_expenses = 0.0
+    variable_month_expenses = Decimal("0")
     variable_expenses = VariableExpense.objects.filter(date__year=year, date__month=month)
 
     for expense in variable_expenses:
-        amount = float(expense.amount or 0)
+        amount = _to_decimal(expense.amount)
         budget_bucket = expense.budget_bucket or VariableExpense.get_budget_bucket_for_category(expense.category)
         variable_month_expenses += amount
         budget_actuals[budget_bucket] += amount
@@ -236,14 +246,14 @@ def calculate_monthly_finance_summary(month: int, year: int):
         Income.objects.filter(date__year=year, date__month=month).aggregate(total=Sum("amount"))["total"]
         or 0
     )
-    total_income = float(month_income)
+    total_income = _to_decimal(month_income)
 
     expense_percentage = None
     if total_income > 0:
         expense_percentage = (estimated_expenses / total_income) * 100
 
     budget_targets = {
-        bucket: round(total_income * ratio, 2)
+        bucket: round(total_income * _to_decimal(ratio), 2)
         for bucket, ratio in budget_target_ratio.items()
     }
     budget_actuals["needs"] = round(budget_actuals["needs"], 2)
@@ -262,17 +272,17 @@ def calculate_monthly_finance_summary(month: int, year: int):
     return {
         "month": month,
         "year": year,
-        "total_income": round(total_income, 2),
-        "home_estimated_expenses": round(home_estimated_expenses, 2),
-        "fixed_estimated_expenses": round(fixed_estimated_expenses, 2),
-        "variable_expenses": round(variable_month_expenses, 2),
-        "estimated_expenses": round(estimated_expenses, 2),
-        "expense_percentage": round(expense_percentage, 2) if expense_percentage is not None else None,
-        "remaining_balance": round(total_income - estimated_expenses, 2),
+        "total_income": float(round(total_income, 2)),
+        "home_estimated_expenses": float(round(home_estimated_expenses, 2)),
+        "fixed_estimated_expenses": float(round(fixed_estimated_expenses, 2)),
+        "variable_expenses": float(round(variable_month_expenses, 2)),
+        "estimated_expenses": float(round(estimated_expenses, 2)),
+        "expense_percentage": float(round(expense_percentage, 2)) if expense_percentage is not None else None,
+        "remaining_balance": float(round(total_income - estimated_expenses, 2)),
         "rule_50_30_20": {
-            "targets": budget_targets,
-            "actuals": budget_actuals,
-            "variance": budget_variance,
+            "targets": {bucket: float(value) for bucket, value in budget_targets.items()},
+            "actuals": {bucket: float(value) for bucket, value in budget_actuals.items()},
+            "variance": {bucket: float(value) for bucket, value in budget_variance.items()},
         },
         "monthly_close": _snapshot_monthly_close(monthly_close) if monthly_close else None,
     }
