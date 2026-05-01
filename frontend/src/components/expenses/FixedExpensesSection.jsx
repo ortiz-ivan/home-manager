@@ -2,7 +2,7 @@ import { getBudgetBucketLabels, getCategoryLabel } from "../../constants/invento
 import { formatGuarani } from "./utils.js";
 
 export function FixedExpensesSection({
-  expenseProducts,
+  fixedExpenses,
   fixedExpenseMessage,
   isFixedExpenseError,
   payingExpenseId,
@@ -19,11 +19,11 @@ export function FixedExpensesSection({
         <h3>Servicios y pagos fijos</h3>
       </div>
 
-      {expenseProducts.length === 0 ? (
+      {fixedExpenses.length === 0 ? (
         <p>No hay servicios ni pagos registrados.</p>
       ) : (
         <div className="income-list">
-          {expenseProducts.map((item) => (
+          {fixedExpenses.map((item) => (
             <div className="income-row fixed-expense-row" key={item.id}>
               <div className="fixed-expense-details">
                 <strong>{item.name}</strong>

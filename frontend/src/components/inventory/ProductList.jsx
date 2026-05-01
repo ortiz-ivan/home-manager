@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
+import { getCategoryOptions } from "../../constants/inventory.js";
 import { ProductCard } from "./ProductCard.jsx";
-import { getCategoryOptions } from "../constants/inventory.js";
 
 export function ProductList({ products, loading, onUpdate, onDelete }) {
   const [categoryFilter, setCategoryFilter] = useState("all");

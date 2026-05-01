@@ -5,7 +5,7 @@ import {
   markOutOfStock,
   updateProduct,
   deleteProduct,
-} from "../api.js";
+} from "../../api.js";
 import {
   FREQUENCY_LABELS,
   FREQUENCY_OPTIONS,
@@ -19,7 +19,7 @@ import {
   getTypeLabel,
   getUnitOptions,
   requiresExactQuantity,
-} from "../constants/inventory.js";
+} from "../../constants/inventory.js";
 
 export function ProductCard({ product, onUpdate, onDelete }) {
   const [isEditing, setIsEditing] = useState(false);

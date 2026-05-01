@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createProduct } from "../api.js";
+import { createProduct } from "../../api.js";
 import {
   FREQUENCY_OPTIONS,
   getBudgetBucketForCategory,
@@ -9,7 +9,7 @@ import {
   getTypeLabel,
   getUnitOptions,
   requiresExactQuantity,
-} from "../constants/inventory.js";
+} from "../../constants/inventory.js";
 
 function createInitialFormData() {
   const firstCategory = getCategoryOptions("inventory")[0]?.value || "food";

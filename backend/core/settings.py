@@ -1,12 +1,35 @@
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = BASE_DIR.parent
 
-SECRET_KEY = 'dev-secret-key'
+load_dotenv(PROJECT_DIR / ".env")
 
-DEBUG = True
 
-ALLOWED_HOSTS = []
+def env_bool(name, default=False):
+    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name, default=""):
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+def env_path(name, default):
+    value = os.getenv(name)
+    if not value:
+        return default
+
+    candidate = Path(value)
+    return candidate if candidate.is_absolute() else PROJECT_DIR / candidate
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
+
+DEBUG = env_bool("DJANGO_DEBUG", True)
+
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
 
 # --------------------
 # APPS
@@ -71,7 +94,7 @@ WSGI_APPLICATION = "core.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": env_path("DJANGO_DB_NAME", BASE_DIR / "db.sqlite3"),
     }
 }
 
@@ -102,4 +125,5 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --------------------
 # CORS
 # --------------------
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = env_bool("DJANGO_CORS_ALLOW_ALL_ORIGINS", True)
+CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS")

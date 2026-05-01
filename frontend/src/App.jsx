@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
-import { ProductForm } from "./components/ProductForm.jsx";
-import { ProductList } from "./components/ProductList.jsx";
 import { PurchasesView } from "./components/PurchasesView.jsx";
 import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
 import { ReportsView } from "./components/ReportsView.jsx";
-import { SettingsView } from "./components/SettingsView.jsx";
+import { ProductForm, ProductList } from "./components/inventory/index.js";
+import { SettingsView } from "./components/settings/index.js";
 import {
   getInventorySettings,
   getMonthlyFinanceSummary,
@@ -473,7 +472,7 @@ function App() {
             incomes={incomes}
             variableExpenses={variableExpenses}
             financeSummary={financeSummary}
-            fixedExpenseProducts={fixedExpenses}
+            fixedExpenses={fixedExpenses}
             onSelectPeriod={setSelectedFinancePeriod}
             onResetPeriod={handleResetFinancePeriod}
           />
@@ -507,7 +506,7 @@ function App() {
           <ExpensesPanel
             incomes={incomes}
             summary={financeSummary}
-            expenseProducts={fixedExpenses}
+            fixedExpenses={fixedExpenses}
             variableExpenses={variableExpenses}
             financialEvents={financialEvents}
             monthlyCloses={monthlyCloses}

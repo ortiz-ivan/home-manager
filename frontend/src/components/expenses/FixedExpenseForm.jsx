@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { createFixedExpense, updateFixedExpense } from "../api.js";
+import { createFixedExpense, updateFixedExpense } from "../../api.js";
 import {
   getBudgetBucketForCategory,
   getBudgetBucketOptions,
   getCategoryOptions,
-} from "../constants/inventory.js";
+} from "../../constants/inventory.js";
 
 function createInitialFormData() {
   const firstCategory = getCategoryOptions("fixed_expense")[0]?.value || "services";
@@ -31,10 +31,10 @@ function normalizeFormData(initialData) {
   };
 }
 
-export function ExpenseProductForm({
-  expenseProductId = null,
+export function FixedExpenseForm({
+  fixedExpenseId = null,
   initialData,
-  onExpenseCreated,
+  onFixedExpenseSaved,
   onClose,
   compact = true,
   title = "Nuevo gasto fijo",
@@ -81,15 +81,15 @@ export function ExpenseProductForm({
         change_reason: formData.change_reason,
       };
 
-      if (expenseProductId) {
-        await updateFixedExpense(expenseProductId, payload);
+      if (fixedExpenseId) {
+        await updateFixedExpense(fixedExpenseId, payload);
       } else {
         await createFixedExpense(payload);
       }
 
-      setMessage(expenseProductId ? "Gasto fijo actualizado" : "Gasto fijo guardado");
+      setMessage(fixedExpenseId ? "Gasto fijo actualizado" : "Gasto fijo guardado");
       setFormData(createInitialFormData());
-      await onExpenseCreated();
+      await onFixedExpenseSaved();
       if (onClose) {
         onClose();
       }
@@ -152,10 +152,10 @@ export function ExpenseProductForm({
             name="change_reason"
             type="text"
             maxLength="255"
-            required={Boolean(expenseProductId)}
+            required={Boolean(fixedExpenseId)}
             value={formData.change_reason}
             onChange={handleChange}
-            placeholder={expenseProductId ? "Explica por que editas este gasto fijo" : "Alta inicial, ajuste, correccion..."}
+            placeholder={fixedExpenseId ? "Explica por que editas este gasto fijo" : "Alta inicial, ajuste, correccion..."}
           />
         </label>
 

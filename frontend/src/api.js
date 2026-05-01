@@ -1,4 +1,10 @@
-const API_BASE = "http://127.0.0.1:8000/api/inventory/";
+function normalizeBaseUrl(url) {
+  return url.endsWith("/") ? url : `${url}/`;
+}
+
+const API_BASE = normalizeBaseUrl(
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/inventory/",
+);
 const PRODUCTS_PATH = "products/";
 const FIXED_EXPENSES_PATH = "fixed-expenses/";
 
