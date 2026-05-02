@@ -7,6 +7,7 @@ const API_BASE = normalizeBaseUrl(
 );
 const PRODUCTS_PATH = "products/";
 const FIXED_EXPENSES_PATH = "fixed-expenses/";
+const RECURRING_TASKS_PATH = "recurring-tasks/";
 
 async function request(path = "", options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -229,4 +230,110 @@ export function updateInventorySettings(config) {
     method: "PUT",
     body: JSON.stringify({ config }),
   });
+}
+
+export function listRecurringTasks(filters = {}) {
+  const query = new URLSearchParams();
+  if (filters.category) {
+    query.set("category", String(filters.category));
+  }
+  if (filters.area) {
+    query.set("area", String(filters.area));
+  }
+  if (filters.priority) {
+    query.set("priority", String(filters.priority));
+  }
+
+  const suffix = query.toString() ? `${RECURRING_TASKS_PATH}?${query.toString()}` : RECURRING_TASKS_PATH;
+  return request(suffix);
+}
+
+export function createRecurringTask(payload) {
+  return request(RECURRING_TASKS_PATH, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateRecurringTask(id, payload) {
+  return request(`${RECURRING_TASKS_PATH}${id}/`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteRecurringTask(id) {
+  return request(`${RECURRING_TASKS_PATH}${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function listTaskOccurrences(dateFrom, dateTo, status, filters = {}) {
+  const query = new URLSearchParams();
+
+  if (dateFrom) {
+    query.set("from", String(dateFrom));
+  }
+  if (dateTo) {
+    query.set("to", String(dateTo));
+  }
+  if (status) {
+    query.set("status", String(status));
+  }
+  if (filters.category) {
+    query.set("category", String(filters.category));
+  }
+  if (filters.area) {
+    query.set("area", String(filters.area));
+  }
+  if (filters.priority) {
+    query.set("priority", String(filters.priority));
+  }
+
+  const suffix = query.toString() ? `task-occurrences/?${query.toString()}` : "task-occurrences/";
+  return request(suffix);
+}
+
+export function completeTaskOccurrence(id, payload = {}) {
+  return request(`task-occurrences/${id}/complete/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function skipTaskOccurrence(id, payload = {}) {
+  return request(`task-occurrences/${id}/skip/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function reopenTaskOccurrence(id) {
+  return request(`task-occurrences/${id}/reopen/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function getHouseholdInsights(dateFrom, dateTo, filters = {}) {
+  const query = new URLSearchParams();
+
+  if (dateFrom) {
+    query.set("from", String(dateFrom));
+  }
+  if (dateTo) {
+    query.set("to", String(dateTo));
+  }
+  if (filters.category) {
+    query.set("category", String(filters.category));
+  }
+  if (filters.area) {
+    query.set("area", String(filters.area));
+  }
+  if (filters.priority) {
+    query.set("priority", String(filters.priority));
+  }
+
+  const suffix = query.toString() ? `household-insights/?${query.toString()}` : "household-insights/";
+  return request(suffix);
 }

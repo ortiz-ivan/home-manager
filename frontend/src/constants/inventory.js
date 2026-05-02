@@ -73,6 +73,27 @@ export const DEFAULT_INVENTORY_SETTINGS = {
     purchase_stale_days: 21,
     critical_frequencies: ["high"],
   },
+  household_task_categories: [
+    { value: "cleaning", label: "Limpieza" },
+    { value: "maintenance", label: "Mantenimiento" },
+    { value: "payments", label: "Pagos y vencimientos" },
+    { value: "shopping", label: "Compras" },
+    { value: "routine", label: "Rutina general" },
+  ],
+  household_task_areas: [
+    { value: "kitchen", label: "Cocina" },
+    { value: "bathroom", label: "Bano" },
+    { value: "laundry", label: "Lavanderia" },
+    { value: "bedroom", label: "Dormitorio" },
+    { value: "living_room", label: "Sala / espacios comunes" },
+    { value: "home_admin", label: "Administracion del hogar" },
+  ],
+  household_task_priorities: [
+    { value: "low", label: "Baja" },
+    { value: "medium", label: "Media" },
+    { value: "high", label: "Alta" },
+    { value: "critical", label: "Critica" },
+  ],
 };
 
 let currentInventorySettings = DEFAULT_INVENTORY_SETTINGS;
@@ -98,6 +119,9 @@ export function normalizeInventorySettings(payload) {
       ...DEFAULT_INVENTORY_SETTINGS.alerts,
       ...(source.alerts || {}),
     },
+    household_task_categories: source.household_task_categories || DEFAULT_INVENTORY_SETTINGS.household_task_categories,
+    household_task_areas: source.household_task_areas || DEFAULT_INVENTORY_SETTINGS.household_task_areas,
+    household_task_priorities: source.household_task_priorities || DEFAULT_INVENTORY_SETTINGS.household_task_priorities,
     categories: source.categories || DEFAULT_INVENTORY_SETTINGS.categories,
     units: source.units || DEFAULT_INVENTORY_SETTINGS.units,
     budget_buckets: source.budget_buckets || DEFAULT_INVENTORY_SETTINGS.budget_buckets,
@@ -174,4 +198,28 @@ export function formatCurrency(value, settings = getCurrentInventorySettings(), 
     maximumFractionDigits: settings.currency.maximum_fraction_digits,
     ...extraOptions,
   }).format(Number.isNaN(amount) ? 0 : amount);
+}
+
+export function getHouseholdTaskCategoryOptions(settings = getCurrentInventorySettings()) {
+  return settings.household_task_categories || [];
+}
+
+export function getHouseholdTaskAreaOptions(settings = getCurrentInventorySettings()) {
+  return settings.household_task_areas || [];
+}
+
+export function getHouseholdTaskPriorityOptions(settings = getCurrentInventorySettings()) {
+  return settings.household_task_priorities || [];
+}
+
+export function getHouseholdTaskCategoryLabel(value, settings = getCurrentInventorySettings()) {
+  return getHouseholdTaskCategoryOptions(settings).find((item) => item.value === value)?.label || value;
+}
+
+export function getHouseholdTaskAreaLabel(value, settings = getCurrentInventorySettings()) {
+  return getHouseholdTaskAreaOptions(settings).find((item) => item.value === value)?.label || value;
+}
+
+export function getHouseholdTaskPriorityLabel(value, settings = getCurrentInventorySettings()) {
+  return getHouseholdTaskPriorityOptions(settings).find((item) => item.value === value)?.label || value;
 }

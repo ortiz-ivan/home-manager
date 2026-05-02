@@ -4,6 +4,7 @@ from .models import (
     InventorySettings,
     get_budget_bucket_values,
     get_category_settings,
+    get_household_option_values,
     merge_inventory_settings,
 )
 
@@ -30,6 +31,19 @@ def validate_budget_bucket(settings_data, attrs, instance=None):
     if budget_bucket and budget_bucket not in allowed_values:
         raise serializers.ValidationError({
             "budget_bucket": f"La bolsa '{budget_bucket}' no existe en la configuracion."
+        })
+
+
+def validate_household_option(settings_data, attrs, field_name, settings_key, instance=None):
+    allowed_values = set(get_household_option_values(settings_data, settings_key))
+    value = attrs.get(field_name)
+
+    if value is None and instance is not None:
+        value = getattr(instance, field_name, None)
+
+    if value and value not in allowed_values:
+        raise serializers.ValidationError({
+            field_name: f"El valor '{value}' no existe en la configuracion {settings_key}."
         })
 
 
@@ -81,6 +95,11 @@ class InventoryAlertSettingsSerializer(serializers.Serializer):
     )
 
 
+class HouseholdOptionSettingsSerializer(serializers.Serializer):
+    value = serializers.CharField(max_length=50)
+    label = serializers.CharField(max_length=80)
+
+
 class InventorySettingsConfigSerializer(serializers.Serializer):
     categories = InventoryCategorySettingsSerializer(many=True)
     units = InventoryUnitSettingsSerializer(many=True)
@@ -90,6 +109,9 @@ class InventorySettingsConfigSerializer(serializers.Serializer):
     currency = InventoryCurrencySettingsSerializer()
     monthly_close_day = serializers.IntegerField(min_value=1, max_value=31)
     alerts = InventoryAlertSettingsSerializer()
+    household_task_categories = HouseholdOptionSettingsSerializer(many=True)
+    household_task_areas = HouseholdOptionSettingsSerializer(many=True)
+    household_task_priorities = HouseholdOptionSettingsSerializer(many=True)
 
     def validate_budget_buckets(self, value):
         bucket_values = {item["value"] for item in value}
@@ -112,6 +134,24 @@ class InventorySettingsConfigSerializer(serializers.Serializer):
                 raise serializers.ValidationError(f"La categoria '{category_value}' esta duplicada.")
             seen.add(category_value)
         return value
+
+    def _validate_option_list(self, value, field_name):
+        seen = set()
+        for item in value:
+            option_value = item["value"]
+            if option_value in seen:
+                raise serializers.ValidationError({field_name: f"El valor '{option_value}' esta duplicado."})
+            seen.add(option_value)
+        return value
+
+    def validate_household_task_categories(self, value):
+        return self._validate_option_list(value, "household_task_categories")
+
+    def validate_household_task_areas(self, value):
+        return self._validate_option_list(value, "household_task_areas")
+
+    def validate_household_task_priorities(self, value):
+        return self._validate_option_list(value, "household_task_priorities")
 
     def validate(self, attrs):
         bucket_values = {item["value"] for item in attrs["budget_buckets"]}

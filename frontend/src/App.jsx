@@ -3,11 +3,20 @@ import "./App.css";
 import { PurchasesView } from "./components/PurchasesView.jsx";
 import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
 import { ReportsView } from "./components/ReportsView.jsx";
+import {
+  addDays,
+  formatDateInput,
+  getHouseholdAgendaBuckets,
+  getHouseholdReminderSummary,
+  HouseholdDashboardSection,
+  HouseholdView,
+} from "./components/household/index.js";
 import { ProductForm, ProductList } from "./components/inventory/index.js";
 import { SettingsView } from "./components/settings/index.js";
 import {
   getInventorySettings,
   getMonthlyFinanceSummary,
+  listTaskOccurrences,
   listFinancialEvents,
   listFixedExpenses,
   listIncomes,
@@ -28,6 +37,7 @@ import {
 
 const MODULES = [
   { key: "dashboard", label: "Dashboard" },
+  { key: "household", label: "Rutinas" },
   { key: "reports", label: "Reportes" },
   { key: "inventory", label: "Inventario" },
   { key: "purchases", label: "Compras" },
@@ -77,6 +87,8 @@ function parsePeriodInputValue(value) {
 function DashboardView({
   products,
   filteredProducts,
+  householdAgendaSummary,
+  householdReminderSummary,
   lowStockProducts,
   criticalItems,
   expiringSoon,
@@ -120,6 +132,33 @@ function DashboardView({
           </header>
           <strong>{criticalItems.length} items</strong>
           <p>Stock critico en productos con frecuencia marcada como sensible.</p>
+        </article>
+
+        <article className="alert-card alert-danger">
+          <header>
+            <span className="alert-icon">!</span>
+            <h3>Tareas atrasadas</h3>
+          </header>
+          <strong>{householdReminderSummary.overdue.length} rutinas</strong>
+          <p>Lo vencido debe resolverse primero para que no se acumule friccion operativa.</p>
+        </article>
+
+        <article className="alert-card alert-warning">
+          <header>
+            <span className="alert-icon">1d</span>
+            <h3>Vence manana</h3>
+          </header>
+          <strong>{householdReminderSummary.tomorrow.length} tareas</strong>
+          <p>Te ayuda a preparar compras, limpieza o pagos antes del siguiente dia.</p>
+        </article>
+
+        <article className="alert-card alert-critical">
+          <header>
+            <span className="alert-icon">7d</span>
+            <h3>Esta semana</h3>
+          </header>
+          <strong>{householdReminderSummary.weekUpcoming.length} pendientes</strong>
+          <p>Visibilidad rapida de lo que aun no vence hoy pero ya conviene anticipar.</p>
         </article>
       </div>
 
@@ -174,6 +213,8 @@ function DashboardView({
           {filteredProducts.length === 0 && <p>No hay productos para mostrar.</p>}
         </div>
       </article>
+
+      <HouseholdDashboardSection summary={householdAgendaSummary} />
     </section>
   );
 }
@@ -200,6 +241,7 @@ function App() {
   const [variableExpenses, setVariableExpenses] = useState([]);
   const [financialEvents, setFinancialEvents] = useState([]);
   const [monthlyCloses, setMonthlyCloses] = useState([]);
+  const [householdOccurrences, setHouseholdOccurrences] = useState([]);
   const [inventorySettings, setInventorySettings] = useState(() => normalizeInventorySettings());
   const [financeSummary, setFinanceSummary] = useState({
     month: new Date().getMonth() + 1,
@@ -290,9 +332,22 @@ function App() {
     }
   }, []);
 
+  const loadHouseholdAgenda = useCallback(async () => {
+    const dateFrom = formatDateInput(addDays(new Date(), -30));
+    const dateTo = formatDateInput(addDays(new Date(), 7));
+
+    try {
+      const occurrenceData = await listTaskOccurrences(dateFrom, dateTo);
+      setHouseholdOccurrences(occurrenceData || []);
+    } catch (error) {
+      console.error("Error loading household agenda:", error);
+      setHouseholdOccurrences([]);
+    }
+  }, []);
+
   const refreshAllData = useCallback(async () => {
-    await Promise.all([loadProducts(), loadFinanceData()]);
-  }, [loadFinanceData, loadProducts]);
+    await Promise.all([loadProducts(), loadFinanceData(), loadHouseholdAgenda()]);
+  }, [loadFinanceData, loadHouseholdAgenda, loadProducts]);
 
   useEffect(() => {
     loadInventoryConfig();
@@ -357,6 +412,17 @@ function App() {
     const projectedUnits = product.type === "consumable" ? Number(product.stock_min || 1) : 1;
     return acc + projectedUnits * baseCost * frequency;
   }, 0);
+  const householdAgendaSummary = getHouseholdAgendaBuckets(householdOccurrences);
+  const householdReminderSummary = getHouseholdReminderSummary(householdOccurrences);
+  const reminderHeadline = householdReminderSummary.overdue.length > 0
+    ? `${householdReminderSummary.overdue.length} tarea(s) atrasadas requieren atencion inmediata.`
+    : householdReminderSummary.today.length > 0
+      ? `${householdReminderSummary.today.length} tarea(s) vencen hoy.`
+      : householdReminderSummary.tomorrow.length > 0
+        ? `${householdReminderSummary.tomorrow.length} tarea(s) vencen manana.`
+        : householdReminderSummary.weekUpcoming.length > 0
+          ? `${householdReminderSummary.weekUpcoming.length} tarea(s) quedan pendientes esta semana.`
+          : "No hay recordatorios urgentes del hogar ahora mismo.";
 
   const currentModuleLabel = MODULES.find((module) => module.key === route)?.label || "Dashboard";
   const showSearch = route === "dashboard" || route === "inventory";
@@ -396,7 +462,12 @@ function App() {
               type="button"
               onClick={() => navigateTo(module.key)}
             >
-              {module.label}
+              <span>{module.label}</span>
+              {module.key === "household" && householdReminderSummary.urgentCount > 0 && (
+                <span className="nav-badge" aria-label={`${householdReminderSummary.urgentCount} recordatorios urgentes`}>
+                  {householdReminderSummary.urgentCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -452,10 +523,25 @@ function App() {
           </div>
         </header>
 
+        <section className={`reminder-strip ${householdReminderSummary.overdue.length > 0 ? "is-danger" : householdReminderSummary.today.length > 0 ? "is-warning" : ""}`}>
+          <div>
+            <strong>Recordatorios del hogar</strong>
+            <p>{reminderHeadline}</p>
+          </div>
+          <div className="reminder-strip-badges">
+            <span className="badge low-stock">Atrasadas: {householdReminderSummary.overdue.length}</span>
+            <span className="badge">Hoy: {householdReminderSummary.today.length}</span>
+            <span className="badge">Manana: {householdReminderSummary.tomorrow.length}</span>
+            <span className="badge">Semana: {householdReminderSummary.weekUpcoming.length}</span>
+          </div>
+        </section>
+
         {route === "dashboard" && (
           <DashboardView
             products={homeProducts}
             filteredProducts={filteredHomeProducts}
+            householdAgendaSummary={householdAgendaSummary}
+            householdReminderSummary={householdReminderSummary}
             lowStockProducts={lowStockProducts}
             criticalItems={criticalItems}
             expiringSoon={expiringSoon}
@@ -465,6 +551,8 @@ function App() {
             inventorySettings={inventorySettings}
           />
         )}
+
+        {route === "household" && <HouseholdView />}
 
         {route === "reports" && (
           <ReportsView

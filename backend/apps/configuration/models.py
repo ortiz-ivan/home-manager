@@ -123,6 +123,27 @@ DEFAULT_INVENTORY_SETTINGS = {
         "purchase_stale_days": 21,
         "critical_frequencies": ["high"],
     },
+    "household_task_categories": [
+        {"value": "cleaning", "label": "Limpieza"},
+        {"value": "maintenance", "label": "Mantenimiento"},
+        {"value": "payments", "label": "Pagos y vencimientos"},
+        {"value": "shopping", "label": "Compras"},
+        {"value": "routine", "label": "Rutina general"},
+    ],
+    "household_task_areas": [
+        {"value": "kitchen", "label": "Cocina"},
+        {"value": "bathroom", "label": "Baño"},
+        {"value": "laundry", "label": "Lavanderia"},
+        {"value": "bedroom", "label": "Dormitorio"},
+        {"value": "living_room", "label": "Sala / espacios comunes"},
+        {"value": "home_admin", "label": "Administracion del hogar"},
+    ],
+    "household_task_priorities": [
+        {"value": "low", "label": "Baja"},
+        {"value": "medium", "label": "Media"},
+        {"value": "high", "label": "Alta"},
+        {"value": "critical", "label": "Critica"},
+    ],
 }
 
 
@@ -193,6 +214,14 @@ def get_budget_bucket_values(settings_data):
     return [
         item.get("value")
         for item in settings_data.get("budget_buckets", [])
+        if item.get("value")
+    ]
+
+
+def get_household_option_values(settings_data, key):
+    return [
+        item.get("value")
+        for item in settings_data.get(key, [])
         if item.get("value")
     ]
 

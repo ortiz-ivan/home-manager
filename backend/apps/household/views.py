@@ -1,0 +1,173 @@
+from datetime import timedelta
+
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
+from rest_framework import generics, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from .models import RecurringTask, TaskOccurrence
+from .serializers import HouseholdInsightsSerializer, RecurringTaskSerializer, TaskOccurrenceSerializer
+from .services import (
+    build_household_insights,
+    complete_task_occurrence,
+    create_recurring_task_record,
+    ensure_occurrences_for_range,
+    reopen_task_occurrence,
+    skip_task_occurrence,
+    update_recurring_task_record,
+)
+
+
+def parse_date_param(raw_value, fallback, field_name):
+    if not raw_value:
+        return fallback
+
+    try:
+        return timezone.datetime.fromisoformat(raw_value).date()
+    except ValueError as exc:
+        raise ValueError(f"La fecha '{field_name}' debe tener formato YYYY-MM-DD.") from exc
+
+
+def extract_household_filters(query_params):
+    return {
+        "category": query_params.get("category") or "",
+        "area": query_params.get("area") or "",
+        "priority": query_params.get("priority") or "",
+    }
+
+
+class RecurringTaskViewSet(viewsets.ModelViewSet):
+    serializer_class = RecurringTaskSerializer
+
+    def get_queryset(self):
+        queryset = RecurringTask.objects.select_related("linked_fixed_expense", "linked_product").all().order_by("title", "id")
+
+        category = self.request.query_params.get("category")
+        area = self.request.query_params.get("area")
+        priority = self.request.query_params.get("priority")
+
+        if category:
+            queryset = queryset.filter(category=category)
+        if area:
+            queryset = queryset.filter(area=area)
+        if priority:
+            queryset = queryset.filter(priority=priority)
+
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = create_recurring_task_record(serializer.validated_data)
+        output_serializer = self.get_serializer(instance)
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = update_recurring_task_record(instance, serializer.validated_data)
+        return Response(self.get_serializer(updated_instance).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
+
+
+class TaskOccurrenceListView(generics.ListAPIView):
+    serializer_class = TaskOccurrenceSerializer
+
+    def get_queryset(self):
+        today = timezone.localdate()
+
+        try:
+            date_from = parse_date_param(self.request.query_params.get("from"), today, "from")
+            date_to = parse_date_param(self.request.query_params.get("to"), today + timedelta(days=30), "to")
+            ensure_occurrences_for_range(date_from, date_to)
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)})
+
+        queryset = TaskOccurrence.objects.select_related(
+            "recurring_task",
+            "recurring_task__linked_fixed_expense",
+            "recurring_task__linked_product",
+        ).filter(
+            recurring_task__is_active=True,
+            due_date__gte=date_from,
+            due_date__lte=date_to,
+        )
+
+        status_filter = self.request.query_params.get("status")
+        filters = extract_household_filters(self.request.query_params)
+
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        if filters["category"]:
+            queryset = queryset.filter(recurring_task__category=filters["category"])
+        if filters["area"]:
+            queryset = queryset.filter(recurring_task__area=filters["area"])
+        if filters["priority"]:
+            queryset = queryset.filter(recurring_task__priority=filters["priority"])
+
+        return queryset.order_by("due_date", "id")
+
+
+class HouseholdInsightsView(generics.GenericAPIView):
+    serializer_class = HouseholdInsightsSerializer
+
+    def get(self, request, *args, **kwargs):
+        today = timezone.localdate()
+        try:
+            date_from = parse_date_param(request.query_params.get("from"), today - timedelta(days=55), "from")
+            date_to = parse_date_param(request.query_params.get("to"), today + timedelta(days=7), "to")
+            payload = build_household_insights(date_from, date_to, extract_household_filters(request.query_params))
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        serializer = self.get_serializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TaskOccurrenceViewSet(viewsets.GenericViewSet):
+    queryset = TaskOccurrence.objects.select_related(
+        "recurring_task",
+        "recurring_task__linked_fixed_expense",
+        "recurring_task__linked_product",
+    ).all()
+    serializer_class = TaskOccurrenceSerializer
+
+    def _notes_from_request(self, request):
+        notes = request.data.get("completion_notes", "")
+        if isinstance(notes, list):
+            notes = notes[0] if notes else ""
+        return str(notes or "").strip()
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        try:
+            occurrence = complete_task_occurrence(self.get_object(), self._notes_from_request(request))
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        return Response(self.get_serializer(occurrence).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def skip(self, request, pk=None):
+        try:
+            occurrence = skip_task_occurrence(self.get_object(), self._notes_from_request(request))
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        return Response(self.get_serializer(occurrence).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def reopen(self, request, pk=None):
+        try:
+            occurrence = reopen_task_occurrence(self.get_object())
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        return Response(self.get_serializer(occurrence).data, status=status.HTTP_200_OK)
