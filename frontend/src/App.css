@@ -17,13 +17,20 @@
   --radius-md: 8px;
   --radius-lg: 8px;
   --ease: 150ms ease;
+  --sidebar-width: 264px;
+  --sidebar-collapsed-width: 88px;
 }
 
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 264px 1fr;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   background: var(--bg-base);
+  transition: grid-template-columns 180ms ease;
+}
+
+.app-shell.sidebar-collapsed {
+  grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
 }
 
 .sidebar {
@@ -35,6 +42,35 @@
   gap: 32px;
   border-right: 1px solid var(--border);
   box-shadow: none;
+  overflow: hidden;
+  transition: padding var(--ease), gap var(--ease);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background var(--ease), border-color var(--ease), color var(--ease);
+}
+
+.sidebar-toggle:hover {
+  background: var(--sidebar-active);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .brand-block h1 {
@@ -55,6 +91,10 @@
 .sidebar-nav {
   display: grid;
   gap: 8px;
+}
+
+.nav-item-label-short {
+  display: none;
 }
 
 .nav-item {
@@ -97,11 +137,62 @@
   color: var(--accent);
 }
 
+.app-shell.sidebar-collapsed .sidebar {
+  padding: 24px 12px;
+  gap: 24px;
+}
+
+.app-shell.sidebar-collapsed .sidebar-header {
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-shell.sidebar-collapsed .brand-block {
+  width: 100%;
+}
+
+.app-shell.sidebar-collapsed .brand-block h1,
+.app-shell.sidebar-collapsed .brand-block p,
+.app-shell.sidebar-collapsed .nav-item-label {
+  display: none;
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle {
+  width: 100%;
+}
+
+.app-shell.sidebar-collapsed .sidebar-nav {
+  justify-items: center;
+}
+
+.app-shell.sidebar-collapsed .nav-item {
+  width: 100%;
+  justify-content: center;
+  gap: 0;
+  padding: 10px 6px;
+  position: relative;
+}
+
+.app-shell.sidebar-collapsed .nav-item-label-short {
+  display: inline;
+}
+
+.app-shell.sidebar-collapsed .nav-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  font-size: 10px;
+  padding: 0 4px;
+}
+
 .workspace {
   padding: 24px 24px 32px;
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 24px;
+  min-width: 0;
 }
 
 .topbar {
@@ -204,6 +295,53 @@
 
 .reports-view {
   gap: 20px;
+}
+
+.module-content:not(.reports-view) {
+  gap: 14px;
+}
+
+.module-content:not(.reports-view) .alerts-grid,
+.module-content:not(.reports-view) .kpi-grid,
+.module-content:not(.reports-view) .finance-grid {
+  gap: 12px;
+}
+
+.module-content:not(.reports-view) .alert-card,
+.module-content:not(.reports-view) .kpi-card,
+.module-content:not(.reports-view) .panel {
+  padding: 13px 14px;
+}
+
+.module-content:not(.reports-view) .panel-title {
+  margin-bottom: 10px;
+}
+
+.module-content:not(.reports-view) .alert-card header {
+  margin-bottom: 8px;
+}
+
+.module-content:not(.reports-view) .alert-card strong {
+  margin-bottom: 6px;
+  font-size: 1.08rem;
+}
+
+.module-content:not(.reports-view) .kpi-card h3 {
+  margin: 6px 0 4px;
+  font-size: 1.38rem;
+}
+
+.module-content:not(.reports-view) .alert-card p,
+.module-content:not(.reports-view) .kpi-card p,
+.module-content:not(.reports-view) .kpi-card small,
+.module-content:not(.reports-view) .panel p,
+.module-content:not(.reports-view) .panel small {
+  line-height: 1.35;
+}
+
+.module-content:not(.reports-view) .kpi-card small,
+.module-content:not(.reports-view) .panel small {
+  font-size: 0.82rem;
 }
 
 .section-header h2 {
@@ -2089,9 +2227,22 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
   .sidebar {
     gap: 16px;
     padding: 18px;
+    overflow: visible;
+  }
+
+  .sidebar-header {
+    align-items: center;
+  }
+
+  .sidebar-toggle {
+    display: none;
   }
 
   .sidebar-nav {

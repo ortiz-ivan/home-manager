@@ -36,13 +36,13 @@ import {
 } from "./constants/inventory.js";
 
 const MODULES = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "household", label: "Rutinas" },
-  { key: "reports", label: "Reportes" },
-  { key: "inventory", label: "Inventario" },
-  { key: "purchases", label: "Compras" },
-  { key: "expenses", label: "Gastos" },
-  { key: "settings", label: "Categorias y Configuracion" },
+  { key: "dashboard", label: "Dashboard", shortLabel: "DB" },
+  { key: "household", label: "Rutinas", shortLabel: "RT" },
+  { key: "reports", label: "Reportes", shortLabel: "RP" },
+  { key: "inventory", label: "Inventario", shortLabel: "IN" },
+  { key: "purchases", label: "Compras", shortLabel: "CP" },
+  { key: "expenses", label: "Gastos", shortLabel: "GS" },
+  { key: "settings", label: "Categorias y Configuracion", shortLabel: "CF" },
 ];
 
 function daysBetween(dateString) {
@@ -235,6 +235,7 @@ function PlaceholderModule({ title, description }) {
 
 function App() {
   const [route, setRoute] = useState("dashboard");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [products, setProducts] = useState([]);
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
@@ -447,11 +448,23 @@ function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isSidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="brand-block">
-          <h1>DomusOps</h1>
-          <p>Control domestico inteligente</p>
+        <div className="sidebar-header">
+          <div className="brand-block">
+            <h1>DomusOps</h1>
+            <p>Control domestico inteligente</p>
+          </div>
+
+          <button
+            className="sidebar-toggle"
+            type="button"
+            onClick={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
+            aria-label={isSidebarCollapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+            aria-pressed={isSidebarCollapsed}
+          >
+            <span aria-hidden="true">{isSidebarCollapsed ? ">>" : "<<"}</span>
+          </button>
         </div>
 
         <nav className="sidebar-nav" aria-label="Modulos principales">
@@ -461,8 +474,11 @@ function App() {
               className={`nav-item ${route === module.key ? "active" : ""}`}
               type="button"
               onClick={() => navigateTo(module.key)}
+              aria-label={module.label}
+              title={isSidebarCollapsed ? module.label : undefined}
             >
-              <span>{module.label}</span>
+              <span className="nav-item-label">{module.label}</span>
+              <span className="nav-item-label-short" aria-hidden="true">{module.shortLabel}</span>
               {module.key === "household" && householdReminderSummary.urgentCount > 0 && (
                 <span className="nav-badge" aria-label={`${householdReminderSummary.urgentCount} recordatorios urgentes`}>
                   {householdReminderSummary.urgentCount}
