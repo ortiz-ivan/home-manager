@@ -13,7 +13,7 @@ export function FinanceSummaryCards({ summary }) {
         <p>Gasto mensual total</p>
         <h3>{formatGuarani(summary.estimated_expenses)}</h3>
         <small>
-          Hogar: {formatGuarani(summary.home_estimated_expenses || 0)} | Fijos: {formatGuarani(summary.fixed_estimated_expenses || 0)} | Variables del mes: {formatGuarani(summary.variable_expenses || 0)}
+          Hogar: {formatGuarani(summary.home_estimated_expenses || 0)} | Fijos pagados: {formatGuarani(summary.fixed_estimated_expenses || 0)} | Variables del mes: {formatGuarani(summary.variable_expenses || 0)}
         </small>
       </article>
 

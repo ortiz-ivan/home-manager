@@ -10,6 +10,7 @@ import {
   getUnitOptions,
   requiresExactQuantity,
 } from "../../constants/inventory.js";
+import { toInputDate } from "../expenses/utils.js";
 
 function createInitialFormData() {
   const firstCategory = getCategoryOptions("inventory")[0]?.value || "food";
@@ -22,7 +23,7 @@ function createInitialFormData() {
     unit: getUnitOptions()[0]?.value || "unidad",
     price: "",
     usage_frequency: "medium",
-    last_purchase: "",
+    last_purchase: toInputDate(new Date()),
     next_due_date: "",
   };
 }

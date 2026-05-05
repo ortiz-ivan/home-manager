@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.configuration.models import get_category_type
@@ -36,6 +37,8 @@ class ProductSerializer(serializers.ModelSerializer):
         attrs["type"] = expected_type
         if not attrs.get("budget_bucket"):
             attrs["budget_bucket"] = Product.get_budget_bucket_for_category(category)
+        if self.instance is None and not attrs.get("last_purchase"):
+            attrs["last_purchase"] = timezone.localdate()
         return attrs
 
     class Meta:

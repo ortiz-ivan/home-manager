@@ -205,7 +205,6 @@ def calculate_monthly_finance_summary(month: int, year: int):
     budget_target_ratio = get_budget_bucket_ratio_map(settings_data)
 
     products = Product.objects.filter(is_active=True)
-    fixed_expenses = FixedExpense.objects.filter(is_active=True)
     home_estimated_expenses = Decimal("0")
     fixed_estimated_expenses = Decimal("0")
     budget_actuals = {
@@ -225,8 +224,15 @@ def calculate_monthly_finance_summary(month: int, year: int):
         home_estimated_expenses += estimate
         budget_actuals[budget_bucket] += estimate
 
-    for expense in fixed_expenses:
-        fixed_amount = _to_decimal(expense.monthly_amount)
+    fixed_payments = FixedExpensePayment.objects.filter(
+        fixed_expense__is_active=True,
+        date__year=year,
+        date__month=month,
+    ).select_related("fixed_expense")
+
+    for payment in fixed_payments:
+        fixed_amount = _to_decimal(payment.amount)
+        expense = payment.fixed_expense
         budget_bucket = expense.budget_bucket or FixedExpense.get_budget_bucket_for_category(expense.category)
         fixed_estimated_expenses += fixed_amount
         budget_actuals[budget_bucket] += fixed_amount

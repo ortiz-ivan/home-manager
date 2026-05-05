@@ -16,17 +16,17 @@ export function toInputDate(date) {
   return `${year}-${month}-${day}`;
 }
 
-export function createIncomeFormState(date) {
+export function createIncomeFormState() {
   return {
     amount: "",
     source: "",
     notes: "",
     change_reason: "",
-    date,
+    date: toInputDate(new Date()),
   };
 }
 
-export function createVariableExpenseFormState(date) {
+export function createVariableExpenseFormState() {
   const firstCategory = getCategoryOptions("variable_expense")[0]?.value || "mobility";
   return {
     amount: "",
@@ -35,6 +35,6 @@ export function createVariableExpenseFormState(date) {
     description: "",
     notes: "",
     change_reason: "",
-    date,
+    date: toInputDate(new Date()),
   };
 }

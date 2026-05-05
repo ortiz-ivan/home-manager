@@ -4,7 +4,7 @@ import { formatCompactGuarani } from "./utils.js";
 export function ExpenseCompositionChart({ summary }) {
   const segments = [
     { key: "home_estimated_expenses", label: "Inventario", color: "var(--accent)" },
-    { key: "fixed_estimated_expenses", label: "Fijos", color: "#ef7d57" },
+    { key: "fixed_estimated_expenses", label: "Fijos pagados", color: "#ef7d57" },
     { key: "variable_expenses", label: "Variables", color: "var(--success)" },
   ];
   const rawTotal = Number(summary.estimated_expenses || 0);

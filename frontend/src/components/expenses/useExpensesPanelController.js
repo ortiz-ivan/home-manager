@@ -33,11 +33,11 @@ function requestChangeReason(message, fallbackValue) {
 function useIncomeController(activePeriodInputDate, onDataChanged) {
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isEditIncomeModalOpen, setIsEditIncomeModalOpen] = useState(false);
-  const [formData, setFormData] = useState(() => createIncomeFormState(activePeriodInputDate));
+  const [formData, setFormData] = useState(() => createIncomeFormState());
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [editingIncomeId, setEditingIncomeId] = useState(null);
-  const [editIncomeForm, setEditIncomeForm] = useState(() => createIncomeFormState(activePeriodInputDate));
+  const [editIncomeForm, setEditIncomeForm] = useState(() => createIncomeFormState());
   const [editIncomeMessage, setEditIncomeMessage] = useState("");
   const [isEditIncomeError, setIsEditIncomeError] = useState(false);
 
@@ -54,7 +54,7 @@ function useIncomeController(activePeriodInputDate, onDataChanged) {
   const openIncomeModal = () => {
     setMessage("");
     setIsError(false);
-    setFormData(createIncomeFormState(activePeriodInputDate));
+    setFormData(createIncomeFormState());
     setIsIncomeModalOpen(true);
   };
 
@@ -82,7 +82,7 @@ function useIncomeController(activePeriodInputDate, onDataChanged) {
         ...formData,
         amount,
       });
-      setFormData(createIncomeFormState(activePeriodInputDate));
+      setFormData(createIncomeFormState());
       setMessage("Ingreso registrado");
       await onDataChanged();
       setIsIncomeModalOpen(false);
@@ -179,11 +179,11 @@ function useIncomeController(activePeriodInputDate, onDataChanged) {
 function useVariableExpenseController(activePeriodInputDate, onDataChanged) {
   const [isVariableModalOpen, setIsVariableModalOpen] = useState(false);
   const [isEditVariableModalOpen, setIsEditVariableModalOpen] = useState(false);
-  const [variableForm, setVariableForm] = useState(() => createVariableExpenseFormState(activePeriodInputDate));
+  const [variableForm, setVariableForm] = useState(() => createVariableExpenseFormState());
   const [variableMessage, setVariableMessage] = useState("");
   const [isVariableError, setIsVariableError] = useState(false);
   const [editingVariableExpenseId, setEditingVariableExpenseId] = useState(null);
-  const [editVariableForm, setEditVariableForm] = useState(() => createVariableExpenseFormState(activePeriodInputDate));
+  const [editVariableForm, setEditVariableForm] = useState(() => createVariableExpenseFormState());
   const [editVariableMessage, setEditVariableMessage] = useState("");
   const [isEditVariableError, setIsEditVariableError] = useState(false);
 
@@ -208,7 +208,7 @@ function useVariableExpenseController(activePeriodInputDate, onDataChanged) {
   const openVariableModal = () => {
     setVariableMessage("");
     setIsVariableError(false);
-    setVariableForm(createVariableExpenseFormState(activePeriodInputDate));
+    setVariableForm(createVariableExpenseFormState());
     setIsVariableModalOpen(true);
   };
 
@@ -236,7 +236,7 @@ function useVariableExpenseController(activePeriodInputDate, onDataChanged) {
         ...variableForm,
         amount,
       });
-      setVariableForm(createVariableExpenseFormState(activePeriodInputDate));
+      setVariableForm(createVariableExpenseFormState());
       setVariableMessage("Gasto variable registrado");
       await onDataChanged();
       setIsVariableModalOpen(false);

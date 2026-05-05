@@ -9,7 +9,6 @@ from apps.reports.services import (
     _snapshot_fixed_payment,
     _snapshot_income,
     _snapshot_variable_expense,
-    get_active_financial_date,
 )
 
 from .models import FixedExpense, FixedExpensePayment, Income, VariableExpense
@@ -20,7 +19,7 @@ def create_income_record(validated_data, change_reason=""):
         "amount": validated_data["amount"],
         "source": validated_data.get("source", "").strip(),
         "notes": validated_data.get("notes", "").strip(),
-        "date": validated_data.get("date") or get_active_financial_date(),
+        "date": validated_data.get("date") or timezone.localdate(),
     }
     reason = _normalize_change_reason(change_reason, default_reason="Alta manual de ingreso")
 
@@ -94,7 +93,7 @@ def create_variable_expense_record(validated_data, change_reason=""):
         "budget_bucket": validated_data["budget_bucket"],
         "description": validated_data.get("description", "").strip(),
         "notes": validated_data.get("notes", "").strip(),
-        "date": validated_data.get("date") or get_active_financial_date(),
+        "date": validated_data.get("date") or timezone.localdate(),
     }
     reason = _normalize_change_reason(change_reason, default_reason="Alta manual de gasto variable")
 
