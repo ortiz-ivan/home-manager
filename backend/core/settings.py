@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.expenses",
     "apps.reports",
     "apps.household",
+    "apps.goals",
     "apps.inventory",
 ]
 

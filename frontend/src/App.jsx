@@ -1,4 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  BarChart2,
+  CalendarClock,
+  CalendarDays,
+  ChevronsLeft,
+  ChevronsRight,
+  Home,
+  LayoutDashboard,
+  Package,
+  PiggyBank,
+  Plus,
+  Settings,
+  ShoppingCart,
+  Wallet,
+  Zap,
+} from "lucide-react";
 import "./App.css";
 import { PurchasesView } from "./components/PurchasesView.jsx";
 import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
@@ -11,6 +29,7 @@ import {
   HouseholdDashboardSection,
   HouseholdView,
 } from "./components/household/index.js";
+import { GoalsView } from "./components/goals/index.js";
 import { ProductForm, ProductList } from "./components/inventory/index.js";
 import { SettingsView } from "./components/settings/index.js";
 import {
@@ -36,13 +55,14 @@ import {
 } from "./constants/inventory.js";
 
 const MODULES = [
-  { key: "dashboard", label: "Dashboard", shortLabel: "DB" },
-  { key: "household", label: "Rutinas", shortLabel: "RT" },
-  { key: "reports", label: "Reportes", shortLabel: "RP" },
-  { key: "inventory", label: "Inventario", shortLabel: "IN" },
-  { key: "purchases", label: "Compras", shortLabel: "CP" },
-  { key: "expenses", label: "Gastos", shortLabel: "GS" },
-  { key: "settings", label: "Categorias y Configuracion", shortLabel: "CF" },
+  { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={15} /> },
+  { key: "household", label: "Rutinas", icon: <Home size={15} /> },
+  { key: "goals", label: "Metas", icon: <PiggyBank size={15} /> },
+  { key: "reports", label: "Reportes", icon: <BarChart2 size={15} /> },
+  { key: "inventory", label: "Inventario", icon: <Package size={15} /> },
+  { key: "purchases", label: "Compras", icon: <ShoppingCart size={15} /> },
+  { key: "expenses", label: "Gastos", icon: <Wallet size={15} /> },
+  { key: "settings", label: "Categorias y Configuracion", icon: <Settings size={15} /> },
 ];
 
 function daysBetween(dateString) {
@@ -107,7 +127,7 @@ function DashboardView({
       <div className="alerts-grid">
         <article className="alert-card alert-danger">
           <header>
-            <span className="alert-icon">!</span>
+            <span className="alert-icon"><AlertTriangle size={14} /></span>
             <h3>Stock bajo</h3>
           </header>
           <strong>{lowStockProducts.length} productos</strong>
@@ -116,7 +136,7 @@ function DashboardView({
 
         <article className="alert-card alert-warning">
           <header>
-            <span className="alert-icon">~</span>
+            <span className="alert-icon"><CalendarClock size={14} /></span>
             <h3>Proximos a vencer</h3>
           </header>
           <strong>{expiringSoon.length} productos</strong>
@@ -127,7 +147,7 @@ function DashboardView({
 
         <article className="alert-card alert-critical">
           <header>
-            <span className="alert-icon">#</span>
+            <span className="alert-icon"><Zap size={14} /></span>
             <h3>Items criticos</h3>
           </header>
           <strong>{criticalItems.length} items</strong>
@@ -136,7 +156,7 @@ function DashboardView({
 
         <article className="alert-card alert-danger">
           <header>
-            <span className="alert-icon">!</span>
+            <span className="alert-icon"><AlertCircle size={14} /></span>
             <h3>Tareas atrasadas</h3>
           </header>
           <strong>{householdReminderSummary.overdue.length} rutinas</strong>
@@ -145,7 +165,7 @@ function DashboardView({
 
         <article className="alert-card alert-warning">
           <header>
-            <span className="alert-icon">1d</span>
+            <span className="alert-icon"><CalendarDays size={14} /></span>
             <h3>Vence manana</h3>
           </header>
           <strong>{householdReminderSummary.tomorrow.length} tareas</strong>
@@ -154,7 +174,7 @@ function DashboardView({
 
         <article className="alert-card alert-critical">
           <header>
-            <span className="alert-icon">7d</span>
+            <span className="alert-icon"><CalendarDays size={14} /></span>
             <h3>Esta semana</h3>
           </header>
           <strong>{householdReminderSummary.weekUpcoming.length} pendientes</strong>
@@ -463,7 +483,7 @@ function App() {
             aria-label={isSidebarCollapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
             aria-pressed={isSidebarCollapsed}
           >
-            <span aria-hidden="true">{isSidebarCollapsed ? ">>" : "<<"}</span>
+            {isSidebarCollapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
           </button>
         </div>
 
@@ -477,8 +497,8 @@ function App() {
               aria-label={module.label}
               title={isSidebarCollapsed ? module.label : undefined}
             >
+              <span className="nav-item-icon" aria-hidden="true">{module.icon}</span>
               <span className="nav-item-label">{module.label}</span>
-              <span className="nav-item-label-short" aria-hidden="true">{module.shortLabel}</span>
               {module.key === "household" && householdReminderSummary.urgentCount > 0 && (
                 <span className="nav-badge" aria-label={`${householdReminderSummary.urgentCount} recordatorios urgentes`}>
                   {householdReminderSummary.urgentCount}
@@ -532,7 +552,9 @@ function App() {
                 className="btn btn-primary"
                 type="button"
                 onClick={() => setIsModalOpen(true)}
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
+                <Plus size={14} />
                 Agregar producto de hogar
               </button>
             )}
@@ -569,6 +591,8 @@ function App() {
         )}
 
         {route === "household" && <HouseholdView />}
+
+        {route === "goals" && <GoalsView />}
 
         {route === "reports" && (
           <ReportsView

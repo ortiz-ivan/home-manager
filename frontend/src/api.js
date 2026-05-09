@@ -315,6 +315,47 @@ export function reopenTaskOccurrence(id) {
   });
 }
 
+const SAVINGS_GOALS_PATH = "savings-goals/";
+
+export function listSavingsGoals(filters = {}) {
+  const query = new URLSearchParams();
+  if (filters.goal_type) {
+    query.set("goal_type", String(filters.goal_type));
+  }
+  if (filters.is_active !== undefined) {
+    query.set("is_active", String(filters.is_active));
+  }
+  const suffix = query.toString() ? `${SAVINGS_GOALS_PATH}?${query.toString()}` : SAVINGS_GOALS_PATH;
+  return request(suffix);
+}
+
+export function createSavingsGoal(payload) {
+  return request(SAVINGS_GOALS_PATH, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateSavingsGoal(id, payload) {
+  return request(`${SAVINGS_GOALS_PATH}${id}/`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteSavingsGoal(id) {
+  return request(`${SAVINGS_GOALS_PATH}${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function contributeToGoal(id, amount) {
+  return request(`${SAVINGS_GOALS_PATH}${id}/contribute/`, {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
+}
+
 export function getHouseholdInsights(dateFrom, dateTo, filters = {}) {
   const query = new URLSearchParams();
 
