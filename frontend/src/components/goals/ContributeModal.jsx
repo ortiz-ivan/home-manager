@@ -1,3 +1,5 @@
+import { MoneyInput } from "../MoneyInput.jsx";
+
 export function ContributeModal({ goals, targetId, amount, message, isError, isActing, onChange, onSubmit, onClose }) {
   if (!targetId) {
     return null;
@@ -25,10 +27,7 @@ export function ContributeModal({ goals, targetId, amount, message, isError, isA
           <form onSubmit={onSubmit} className="form-grid">
             <label>
               Monto del aporte
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
+              <MoneyInput
                 required
                 value={amount}
                 onChange={(e) => onChange(e.target.value)}

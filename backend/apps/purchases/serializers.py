@@ -4,7 +4,7 @@ from rest_framework import serializers
 from apps.configuration.models import get_category_type
 from apps.configuration.serializers import validate_budget_bucket, validate_category_for_scope
 
-from .models import Product
+from .models import Product, ProductConsumption, ProductRestock
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -44,3 +44,38 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = "__all__"
+
+
+class ProductConsumptionSerializer(serializers.ModelSerializer):
+    quantity = serializers.DecimalField(max_digits=12, decimal_places=3, coerce_to_string=False)
+
+    class Meta:
+        model = ProductConsumption
+        fields = ["id", "product", "quantity", "date", "created_at"]
+
+
+class ProductRestockSerializer(serializers.ModelSerializer):
+    quantity = serializers.DecimalField(max_digits=12, decimal_places=3, coerce_to_string=False)
+    unit_cost = serializers.DecimalField(max_digits=12, decimal_places=2, coerce_to_string=False, allow_null=True)
+
+    class Meta:
+        model = ProductRestock
+        fields = ["id", "product", "quantity", "unit_cost", "date", "created_at"]
+
+
+class ProductStatsSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    period_days = serializers.IntegerField()
+    date_from = serializers.DateField()
+    date_to = serializers.DateField()
+    total_consumed = serializers.FloatField()
+    total_restocked = serializers.FloatField()
+    consumption_count = serializers.IntegerField()
+    restock_count = serializers.IntegerField()
+    avg_daily_consumption = serializers.FloatField()
+    avg_monthly_consumption = serializers.FloatField()
+    estimated_days_remaining = serializers.IntegerField(allow_null=True)
+    estimated_monthly_cost = serializers.FloatField(allow_null=True)
+    avg_restock_interval_days = serializers.FloatField(allow_null=True)
+    current_stock = serializers.FloatField()
+    unit = serializers.CharField()

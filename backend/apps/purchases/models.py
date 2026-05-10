@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 from apps.configuration.models import (
     InventorySettings,
@@ -57,3 +58,32 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.category})"
+
+
+class ProductConsumption(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="consumptions")
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    date = models.DateField(default=timezone.localdate)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "inventory_productconsumption"
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"Consumo {self.product.name} x{self.quantity} ({self.date})"
+
+
+class ProductRestock(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="restocks")
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    date = models.DateField(default=timezone.localdate)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "inventory_productrestock"
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"Reposicion {self.product.name} x{self.quantity} ({self.date})"

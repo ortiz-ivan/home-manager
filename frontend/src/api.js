@@ -74,6 +74,18 @@ export function markOutOfStock(id) {
   });
 }
 
+export function getProductStats(id, days = 90) {
+  return request(`${PRODUCTS_PATH}${id}/stats/?days=${days}`);
+}
+
+export function listProductConsumptions(id, days = 90) {
+  return request(`${PRODUCTS_PATH}${id}/consumption/?days=${days}`);
+}
+
+export function listProductRestocks(id, days = 90) {
+  return request(`${PRODUCTS_PATH}${id}/restocks/?days=${days}`);
+}
+
 export function listFixedExpenses(month, year) {
   const query = new URLSearchParams();
 

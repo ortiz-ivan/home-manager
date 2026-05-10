@@ -1,14 +1,19 @@
+import { MoneyInput } from "../MoneyInput.jsx";
+
 const GOAL_TYPE_OPTIONS = [
   { value: "savings", label: "Ahorro" },
   { value: "debt", label: "Deuda" },
   { value: "big_purchase", label: "Compra grande" },
 ];
 
-export function GoalForm({ formData, editingGoal, message, isError, isActing, onChange, onSubmit, onCancel }) {
+export function GoalForm({ formData, editingGoal, message, isError, isActing, onChange, onSubmit, onCancel, onClose }) {
   return (
-    <article className="panel">
-      <div className="panel-title">
-        <h3>{editingGoal ? "Editar meta" : "Nueva meta"}</h3>
+    <section className="panel modal-form-panel compact">
+      <div className="modal-form-header">
+        <h2>{editingGoal ? "Editar meta" : "Nueva meta"}</h2>
+        <button className="btn btn-outline" type="button" onClick={onClose}>
+          Cerrar
+        </button>
       </div>
 
       <form className="form-grid" onSubmit={onSubmit}>
@@ -37,11 +42,8 @@ export function GoalForm({ formData, editingGoal, message, isError, isActing, on
 
         <label>
           Monto objetivo
-          <input
+          <MoneyInput
             name="target_amount"
-            type="number"
-            min="0.01"
-            step="0.01"
             required
             value={formData.target_amount}
             onChange={onChange}
@@ -50,11 +52,8 @@ export function GoalForm({ formData, editingGoal, message, isError, isActing, on
 
         <label>
           Monto actual (saldo inicial)
-          <input
+          <MoneyInput
             name="current_amount"
-            type="number"
-            min="0"
-            step="0.01"
             value={formData.current_amount}
             onChange={onChange}
           />
@@ -105,6 +104,6 @@ export function GoalForm({ formData, editingGoal, message, isError, isActing, on
       </form>
 
       {message && <p className={`message ${isError ? "error" : ""}`}>{message}</p>}
-    </article>
+    </section>
   );
 }

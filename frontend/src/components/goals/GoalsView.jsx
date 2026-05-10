@@ -9,6 +9,7 @@ export function GoalsView() {
     goals,
     loading,
     isActing,
+    isGoalModalOpen,
     formData,
     editingGoal,
     contributeTargetId,
@@ -29,14 +30,47 @@ export function GoalsView() {
     handleCloseContribute,
     setContributeAmount,
     handleContributeSubmit,
+    openGoalModal,
+    closeGoalModal,
   } = useGoalsViewController();
 
   return (
     <section className="module-content fade-in">
-      <div className="section-header">
-        <h2>Metas financieras</h2>
-        <p>Seguimiento de ahorro, deudas y compras grandes. Registra aportes y mide tu avance.</p>
+      <div className="section-header expenses-header">
+        <div className="section-header-copy">
+          <h2>Metas financieras</h2>
+          <p>Seguimiento de ahorro, deudas y compras grandes. Registra aportes y mide tu avance.</p>
+        </div>
+        <div className="expenses-header-actions">
+          <button className="btn btn-primary" type="button" onClick={openGoalModal}>
+            Nueva meta
+          </button>
+        </div>
       </div>
+
+      {isGoalModalOpen && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={editingGoal ? "Editar meta" : "Nueva meta"}
+          onClick={closeGoalModal}
+        >
+          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
+            <GoalForm
+              formData={formData}
+              editingGoal={editingGoal}
+              message={!contributeTargetId ? message : ""}
+              isError={isError}
+              isActing={isActing}
+              onChange={handleChange}
+              onSubmit={handleSubmit}
+              onCancel={handleCancelEdit}
+              onClose={closeGoalModal}
+            />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <article className="panel">
@@ -71,17 +105,6 @@ export function GoalsView() {
           </div>
 
           <div className="finance-grid">
-            <GoalForm
-              formData={formData}
-              editingGoal={editingGoal}
-              message={!contributeTargetId ? message : ""}
-              isError={isError}
-              isActing={isActing}
-              onChange={handleChange}
-              onSubmit={handleSubmit}
-              onCancel={handleCancelEdit}
-            />
-
             {goals.length === 0 ? (
               <article className="panel">
                 <p>No hay metas registradas. Crea la primera usando el formulario.</p>

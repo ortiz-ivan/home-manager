@@ -1,12 +1,19 @@
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Product
-from .serializers import ProductSerializer
-from .services import consume_product, mark_product_out_of_stock, restock_product
+from .models import Product, ProductConsumption, ProductRestock
+from .serializers import (
+    ProductConsumptionSerializer,
+    ProductRestockSerializer,
+    ProductSerializer,
+    ProductStatsSerializer,
+)
+from .services import consume_product, get_product_stats, mark_product_out_of_stock, restock_product
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -86,3 +93,33 @@ class ProductViewSet(viewsets.ModelViewSet):
             "product": ProductSerializer(result["product"]).data,
             "low_stock": result["low_stock"],
         })
+
+    @action(detail=True, methods=["get"])
+    def stats(self, request, pk=None):
+        days = self._parse_days(request.query_params.get("days", 90))
+        try:
+            data = get_product_stats(pk, days)
+        except Product.DoesNotExist:
+            return Response({"detail": "Producto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(ProductStatsSerializer(data).data)
+
+    @action(detail=True, methods=["get"])
+    def consumption(self, request, pk=None):
+        days = self._parse_days(request.query_params.get("days", 90))
+        date_from = timezone.localdate() - timedelta(days=days - 1)
+        qs = ProductConsumption.objects.filter(product_id=pk, date__gte=date_from)
+        return Response(ProductConsumptionSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=["get"])
+    def restocks(self, request, pk=None):
+        days = self._parse_days(request.query_params.get("days", 90))
+        date_from = timezone.localdate() - timedelta(days=days - 1)
+        qs = ProductRestock.objects.filter(product_id=pk, date__gte=date_from)
+        return Response(ProductRestockSerializer(qs, many=True).data)
+
+    @staticmethod
+    def _parse_days(raw):
+        try:
+            return max(1, min(int(raw), 365))
+        except (ValueError, TypeError):
+            return 90

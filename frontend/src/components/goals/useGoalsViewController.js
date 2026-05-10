@@ -33,6 +33,7 @@ export function useGoalsViewController() {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [editingGoal, setEditingGoal] = useState(null);
   const [contributeTargetId, setContributeTargetId] = useState(null);
@@ -63,6 +64,20 @@ export function useGoalsViewController() {
     setIsError(false);
   };
 
+  const openGoalModal = () => {
+    setFormData(EMPTY_FORM);
+    setEditingGoal(null);
+    clearMessage();
+    setIsGoalModalOpen(true);
+  };
+
+  const closeGoalModal = () => {
+    setIsGoalModalOpen(false);
+    setEditingGoal(null);
+    setFormData(EMPTY_FORM);
+    clearMessage();
+  };
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
     setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
@@ -83,14 +98,13 @@ export function useGoalsViewController() {
 
       if (editingGoal) {
         await updateSavingsGoal(editingGoal.id, payload);
-        setMessage("Meta actualizada");
       } else {
         await createSavingsGoal(payload);
-        setMessage("Meta creada");
       }
 
       setFormData(EMPTY_FORM);
       setEditingGoal(null);
+      setIsGoalModalOpen(false);
       await loadGoals();
     } catch (error) {
       setMessage(error.message);
@@ -104,12 +118,14 @@ export function useGoalsViewController() {
     setEditingGoal(goal);
     setFormData(goalToFormData(goal));
     clearMessage();
+    setIsGoalModalOpen(true);
   };
 
   const handleCancelEdit = () => {
     setEditingGoal(null);
     setFormData(EMPTY_FORM);
     clearMessage();
+    setIsGoalModalOpen(false);
   };
 
   const handleDeleteGoal = async (goalId) => {
@@ -166,6 +182,7 @@ export function useGoalsViewController() {
     goals,
     loading,
     isActing,
+    isGoalModalOpen,
     formData,
     editingGoal,
     contributeTargetId,
@@ -186,5 +203,7 @@ export function useGoalsViewController() {
     handleCloseContribute,
     setContributeAmount,
     handleContributeSubmit,
+    openGoalModal,
+    closeGoalModal,
   };
 }

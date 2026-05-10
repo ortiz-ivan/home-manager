@@ -5,6 +5,7 @@ import {
   getBudgetBucketOptions,
   getCategoryOptions,
 } from "../../constants/inventory.js";
+import { MoneyInput } from "../MoneyInput.jsx";
 
 function createInitialFormData() {
   const firstCategory = getCategoryOptions("fixed_expense")[0]?.value || "services";
@@ -138,7 +139,7 @@ export function FixedExpenseForm({
 
         <label>
           Monto mensual estimado
-          <input name="monthly_amount" type="number" min="0" step="0.01" required value={formData.monthly_amount} onChange={handleChange} />
+          <MoneyInput name="monthly_amount" required value={formData.monthly_amount} onChange={handleChange} />
         </label>
 
         <label>

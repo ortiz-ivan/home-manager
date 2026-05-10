@@ -5,6 +5,9 @@ import {
   markOutOfStock,
   updateProduct,
   deleteProduct,
+  getProductStats,
+  listProductConsumptions,
+  listProductRestocks,
 } from "../../api.js";
 import {
   FREQUENCY_LABELS,
@@ -20,6 +23,137 @@ import {
   getUnitOptions,
   requiresExactQuantity,
 } from "../../constants/inventory.js";
+
+function ProductHistoryPanel({ productId, unit }) {
+  const [stats, setStats] = useState(null);
+  const [consumptions, setConsumptions] = useState(null);
+  const [restocks, setRestocks] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [days, setDays] = useState(90);
+
+  const load = async (d = days) => {
+    setLoading(true);
+    try {
+      const [s, c, r] = await Promise.all([
+        getProductStats(productId, d),
+        listProductConsumptions(productId, d),
+        listProductRestocks(productId, d),
+      ]);
+      setStats(s);
+      setConsumptions(c);
+      setRestocks(r);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDaysChange = (e) => {
+    const d = Number(e.target.value);
+    setDays(d);
+    load(d);
+  };
+
+  if (!stats && !loading) {
+    return (
+      <button className="btn btn-outline" type="button" onClick={() => load()}>
+        Ver historial
+      </button>
+    );
+  }
+
+  if (loading) {
+    return <p className="meta">Cargando historial...</p>;
+  }
+
+  const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString("es-PY", { maximumFractionDigits: 2 }));
+
+  return (
+    <div className="product-history">
+      <div className="history-controls">
+        <strong>Historial ({days} dias)</strong>
+        <select value={days} onChange={handleDaysChange} className="days-select">
+          <option value={30}>30 dias</option>
+          <option value={90}>90 dias</option>
+          <option value={180}>180 dias</option>
+          <option value={365}>365 dias</option>
+        </select>
+        <button className="btn btn-outline btn-sm" type="button" onClick={() => { setStats(null); setConsumptions(null); setRestocks(null); }}>
+          Cerrar
+        </button>
+      </div>
+
+      <div className="history-stats">
+        <div className="stat-item">
+          <span className="stat-label">Consumido</span>
+          <span className="stat-value">{fmt(stats.total_consumed)} {unit}</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-label">Repuesto</span>
+          <span className="stat-value">{fmt(stats.total_restocked)} {unit}</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-label">Consumo/mes</span>
+          <span className="stat-value">{fmt(stats.avg_monthly_consumption)} {unit}</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-label">Dias restantes</span>
+          <span className="stat-value">{stats.estimated_days_remaining ?? "—"}</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-label">Costo mensual est.</span>
+          <span className="stat-value">{stats.estimated_monthly_cost != null ? `${fmt(stats.estimated_monthly_cost)} Gs.` : "—"}</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-label">Intervalo reposicion</span>
+          <span className="stat-value">{stats.avg_restock_interval_days != null ? `${fmt(stats.avg_restock_interval_days)} dias` : "—"}</span>
+        </div>
+      </div>
+
+      {consumptions && consumptions.length > 0 && (
+        <div className="history-table-section">
+          <p className="meta"><strong>Consumos recientes</strong></p>
+          <table className="history-table">
+            <thead>
+              <tr><th>Fecha</th><th>Cantidad</th></tr>
+            </thead>
+            <tbody>
+              {consumptions.slice(0, 8).map((c) => (
+                <tr key={c.id}>
+                  <td>{c.date}</td>
+                  <td>{fmt(c.quantity)} {unit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {restocks && restocks.length > 0 && (
+        <div className="history-table-section">
+          <p className="meta"><strong>Reposiciones recientes</strong></p>
+          <table className="history-table">
+            <thead>
+              <tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th></tr>
+            </thead>
+            <tbody>
+              {restocks.slice(0, 8).map((r) => (
+                <tr key={r.id}>
+                  <td>{r.date}</td>
+                  <td>{fmt(r.quantity)} {unit}</td>
+                  <td>{r.unit_cost != null ? `${fmt(r.unit_cost)} Gs.` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {consumptions?.length === 0 && restocks?.length === 0 && (
+        <p className="meta">Sin movimientos en el periodo.</p>
+      )}
+    </div>
+  );
+}
 
 export function ProductCard({ product, onUpdate, onDelete }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -206,6 +340,12 @@ export function ProductCard({ product, onUpdate, onDelete }) {
               Eliminar
             </button>
           </div>
+
+          {isConsumable && (
+            <div className="product-history-wrapper">
+              <ProductHistoryPanel productId={product.id} unit={product.unit} />
+            </div>
+          )}
         </>
       ) : (
         <form onSubmit={handleEditSubmit} className="edit-form">

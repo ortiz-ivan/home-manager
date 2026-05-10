@@ -2,6 +2,7 @@ import {
   getBudgetBucketOptions,
   getCategoryOptions,
 } from "../../constants/inventory.js";
+import { MoneyInput } from "../MoneyInput.jsx";
 
 function VariableExpenseFormFields({ formData, onChange, submitLabel, requireChangeReason = false }) {
   const variableExpenseCategories = getCategoryOptions("variable_expense");
@@ -11,11 +12,8 @@ function VariableExpenseFormFields({ formData, onChange, submitLabel, requireCha
     <>
       <label>
         Monto
-        <input
+        <MoneyInput
           name="amount"
-          type="number"
-          min="0"
-          step="0.01"
           required
           value={formData.amount}
           onChange={onChange}

@@ -25,6 +25,7 @@ export function HouseholdView() {
     resolvedOccurrences,
     loading,
     isActing,
+    isTaskModalOpen,
     formData,
     message,
     isError,
@@ -34,14 +35,50 @@ export function HouseholdView() {
     handleResetFilters,
     handleSubmit,
     handleOccurrenceAction,
+    openTaskModal,
+    closeTaskModal,
   } = useHouseholdViewController();
 
   return (
     <section className="module-content fade-in">
-      <div className="section-header">
-        <h2>Rutinas del hogar</h2>
-        <p>Crea tareas semanales o mensuales y visualizalas en una agenda operativa basica.</p>
+      <div className="section-header expenses-header">
+        <div className="section-header-copy">
+          <h2>Rutinas del hogar</h2>
+          <p>Crea tareas semanales o mensuales y visualizalas en una agenda operativa basica.</p>
+        </div>
+        <div className="expenses-header-actions">
+          <button className="btn btn-primary" type="button" onClick={openTaskModal}>
+            Nueva tarea recurrente
+          </button>
+        </div>
       </div>
+
+      {isTaskModalOpen && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Nueva tarea recurrente"
+          onClick={closeTaskModal}
+        >
+          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
+            <RecurringTaskForm
+              formData={formData}
+              message={message}
+              isError={isError}
+              categoryOptions={categoryOptions}
+              areaOptions={areaOptions}
+              priorityOptions={priorityOptions}
+              integrationOptions={integrationOptions}
+              fixedExpenseOptions={fixedExpenseOptions}
+              productOptions={productOptions}
+              onChange={handleChange}
+              onSubmit={handleSubmit}
+              onClose={closeTaskModal}
+            />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <article className="panel">
@@ -71,19 +108,6 @@ export function HouseholdView() {
           />
 
           <div className="finance-grid">
-            <RecurringTaskForm
-              formData={formData}
-              message={message}
-              isError={isError}
-              categoryOptions={categoryOptions}
-              areaOptions={areaOptions}
-              priorityOptions={priorityOptions}
-              integrationOptions={integrationOptions}
-              fixedExpenseOptions={fixedExpenseOptions}
-              productOptions={productOptions}
-              onChange={handleChange}
-              onSubmit={handleSubmit}
-            />
             <RecurringTaskTemplatesSection recurringTasks={recurringTasks} />
             <HouseholdComplianceSection weeklyCompletion={insights.weekly_completion} />
             <HouseholdRiskSection

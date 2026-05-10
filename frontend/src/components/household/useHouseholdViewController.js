@@ -61,6 +61,7 @@ export function useHouseholdViewController() {
   const [productOptions, setProductOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [formData, setFormData] = useState(() => createInitialFormData());
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -152,6 +153,18 @@ export function useHouseholdViewController() {
     setFilters({ category: "", area: "", priority: "" });
   };
 
+  const openTaskModal = () => {
+    setMessage("");
+    setIsError(false);
+    setIsTaskModalOpen(true);
+  };
+
+  const closeTaskModal = () => {
+    setIsTaskModalOpen(false);
+    setMessage("");
+    setIsError(false);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage("");
@@ -175,8 +188,8 @@ export function useHouseholdViewController() {
         day_of_month: formData.frequency_type === "monthly" ? Number(formData.day_of_month) : null,
       };
       await createRecurringTask(payload);
-      setMessage("Tarea recurrente guardada");
       setFormData(createInitialFormData());
+      setIsTaskModalOpen(false);
       await loadData();
     } catch (error) {
       setMessage(error.message);
@@ -226,6 +239,7 @@ export function useHouseholdViewController() {
     resolvedOccurrences: agendaBuckets.resolvedRecent,
     loading,
     isActing,
+    isTaskModalOpen,
     formData,
     message,
     isError,
@@ -237,5 +251,7 @@ export function useHouseholdViewController() {
     handleResetFilters,
     handleSubmit,
     handleOccurrenceAction,
+    openTaskModal,
+    closeTaskModal,
   };
 }

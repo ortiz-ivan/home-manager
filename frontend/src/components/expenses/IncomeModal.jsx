@@ -1,13 +1,12 @@
+import { MoneyInput } from "../MoneyInput.jsx";
+
 function IncomeFormFields({ formData, onChange, submitLabel, requireChangeReason = false }) {
   return (
     <>
       <label>
         Monto
-        <input
+        <MoneyInput
           name="amount"
-          type="number"
-          min="0"
-          step="0.01"
           required
           value={formData.amount}
           onChange={onChange}

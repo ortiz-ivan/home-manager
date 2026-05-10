@@ -20,13 +20,17 @@ export function RecurringTaskForm({
   productOptions,
   onChange,
   onSubmit,
+  onClose,
 }) {
   const intervalLabel = formData.frequency_type === "daily" ? "Cada cuantos dias" : "Cada cuanto";
 
   return (
-    <article className="panel">
-      <div className="panel-title">
-        <h3>Nueva tarea recurrente</h3>
+    <section className="panel modal-form-panel compact">
+      <div className="modal-form-header">
+        <h2>Nueva tarea recurrente</h2>
+        <button className="btn btn-outline" type="button" onClick={onClose}>
+          Cerrar
+        </button>
       </div>
 
       <form className="form-grid" onSubmit={onSubmit}>
@@ -172,6 +176,6 @@ export function RecurringTaskForm({
       </form>
 
       {message && <p className={`message ${isError ? "error" : ""}`}>{message}</p>}
-    </article>
+    </section>
   );
 }
