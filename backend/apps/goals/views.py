@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from .filters import SavingsGoalFilter
 from .models import SavingsGoal
 from .serializers import SavingsGoalSerializer
 from .services import add_contribution
@@ -13,19 +14,7 @@ from .services import add_contribution
 class SavingsGoalViewSet(viewsets.ModelViewSet):
     queryset = SavingsGoal.objects.all()
     serializer_class = SavingsGoalSerializer
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        is_active = self.request.query_params.get("is_active")
-        goal_type = self.request.query_params.get("goal_type")
-
-        if is_active is not None:
-            active_flag = is_active.lower() in {"1", "true", "yes"}
-            queryset = queryset.filter(is_active=active_flag)
-        if goal_type:
-            queryset = queryset.filter(goal_type=goal_type)
-
-        return queryset
+    filterset_class = SavingsGoalFilter
 
     @action(detail=True, methods=["post"])
     def contribute(self, request, pk=None):

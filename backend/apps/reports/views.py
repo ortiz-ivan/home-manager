@@ -24,6 +24,8 @@ def resolve_month_year(query_params):
 
 
 class MonthlyFinanceSummaryView(APIView):
+    serializer_class = MonthlyFinanceSummarySerializer
+
     def get(self, request):
         try:
             month, year = resolve_month_year(request.query_params)
@@ -39,6 +41,8 @@ class MonthlyFinanceSummaryView(APIView):
 
 
 class FinancialEventListView(APIView):
+    serializer_class = FinancialEventSerializer
+
     def get(self, request):
         try:
             month, year = resolve_month_year(request.query_params)
@@ -52,6 +56,8 @@ class FinancialEventListView(APIView):
 
 
 class MonthlyCloseView(APIView):
+    serializer_class = MonthlyCloseSerializer
+
     def get(self, request):
         closes = MonthlyClose.objects.all()
         serializer = MonthlyCloseSerializer(closes, many=True)

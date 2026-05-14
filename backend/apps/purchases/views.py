@@ -6,6 +6,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from .filters import ProductFilter
 from .models import Product, ProductConsumption, ProductRestock
 from .serializers import (
     ProductConsumptionSerializer,
@@ -19,6 +20,7 @@ from .services import consume_product, get_product_stats, mark_product_out_of_st
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    filterset_class = ProductFilter
 
     @staticmethod
     def _parse_quantity(raw_quantity):

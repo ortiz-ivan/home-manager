@@ -6,6 +6,7 @@ from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from .filters import RecurringTaskFilter, TaskOccurrenceFilter
 from .models import RecurringTask, TaskOccurrence
 from .serializers import HouseholdInsightsSerializer, RecurringTaskSerializer, TaskOccurrenceSerializer
 from .services import (
@@ -29,7 +30,7 @@ def parse_date_param(raw_value, fallback, field_name):
         raise ValueError(f"La fecha '{field_name}' debe tener formato YYYY-MM-DD.") from exc
 
 
-def extract_household_filters(query_params):
+def _household_filters_from_params(query_params):
     return {
         "category": query_params.get("category") or "",
         "area": query_params.get("area") or "",
@@ -39,22 +40,15 @@ def extract_household_filters(query_params):
 
 class RecurringTaskViewSet(viewsets.ModelViewSet):
     serializer_class = RecurringTaskSerializer
+    filterset_class = RecurringTaskFilter
 
     def get_queryset(self):
-        queryset = RecurringTask.objects.select_related("linked_fixed_expense", "linked_product").all().order_by("title", "id")
-
-        category = self.request.query_params.get("category")
-        area = self.request.query_params.get("area")
-        priority = self.request.query_params.get("priority")
-
-        if category:
-            queryset = queryset.filter(category=category)
-        if area:
-            queryset = queryset.filter(area=area)
-        if priority:
-            queryset = queryset.filter(priority=priority)
-
-        return queryset
+        return (
+            RecurringTask.objects
+            .select_related("linked_fixed_expense", "linked_product")
+            .all()
+            .order_by("title", "id")
+        )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -79,6 +73,7 @@ class RecurringTaskViewSet(viewsets.ModelViewSet):
 
 class TaskOccurrenceListView(generics.ListAPIView):
     serializer_class = TaskOccurrenceSerializer
+    filterset_class = TaskOccurrenceFilter
 
     def get_queryset(self):
         today = timezone.localdate()
@@ -90,7 +85,7 @@ class TaskOccurrenceListView(generics.ListAPIView):
         except ValueError as exc:
             raise ValidationError({"detail": str(exc)})
 
-        queryset = TaskOccurrence.objects.select_related(
+        return TaskOccurrence.objects.select_related(
             "recurring_task",
             "recurring_task__linked_fixed_expense",
             "recurring_task__linked_product",
@@ -98,21 +93,7 @@ class TaskOccurrenceListView(generics.ListAPIView):
             recurring_task__is_active=True,
             due_date__gte=date_from,
             due_date__lte=date_to,
-        )
-
-        status_filter = self.request.query_params.get("status")
-        filters = extract_household_filters(self.request.query_params)
-
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-        if filters["category"]:
-            queryset = queryset.filter(recurring_task__category=filters["category"])
-        if filters["area"]:
-            queryset = queryset.filter(recurring_task__area=filters["area"])
-        if filters["priority"]:
-            queryset = queryset.filter(recurring_task__priority=filters["priority"])
-
-        return queryset.order_by("due_date", "id")
+        ).order_by("due_date", "id")
 
 
 class HouseholdInsightsView(generics.GenericAPIView):
@@ -123,7 +104,7 @@ class HouseholdInsightsView(generics.GenericAPIView):
         try:
             date_from = parse_date_param(request.query_params.get("from"), today - timedelta(days=55), "from")
             date_to = parse_date_param(request.query_params.get("to"), today + timedelta(days=7), "to")
-            payload = build_household_insights(date_from, date_to, extract_household_filters(request.query_params))
+            payload = build_household_insights(date_from, date_to, _household_filters_from_params(request.query_params))
         except ValueError as exc:
             raise ValidationError({"detail": str(exc)}) from exc
 

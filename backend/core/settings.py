@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
     "rest_framework",
+    "django_filters",
+    "drf_spectacular",
     "corsheaders",
 
     "apps.configuration",
@@ -129,3 +131,29 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --------------------
 CORS_ALLOW_ALL_ORIGINS = env_bool("DJANGO_CORS_ALLOW_ALL_ORIGINS", True)
 CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS")
+
+# --------------------
+# DJANGO REST FRAMEWORK
+# --------------------
+REST_FRAMEWORK = {
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
+}
+
+# --------------------
+# DRF SPECTACULAR (OpenAPI)
+# --------------------
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Home Manager API",
+    "DESCRIPTION": "API de gestión del hogar: inventario, finanzas, tareas y metas.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}

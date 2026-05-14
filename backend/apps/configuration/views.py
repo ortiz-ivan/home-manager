@@ -6,6 +6,8 @@ from .serializers import InventorySettingsSerializer
 
 
 class InventorySettingsView(APIView):
+    serializer_class = InventorySettingsSerializer
+
     def get(self, request):
         settings_instance = InventorySettings.get_solo()
         serializer = InventorySettingsSerializer(settings_instance)
