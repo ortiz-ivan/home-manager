@@ -1,5 +1,6 @@
 import {
   BudgetComparisonChart,
+  CategoryBudgetPanel,
   ExpenseCompositionChart,
   FixedExpensesStatusChart,
   IncomeSourcesChart,
@@ -64,6 +65,7 @@ export function ReportsView({
           <TrendChart data={history} />
         )}
 
+        <CategoryBudgetPanel summary={financeSummary} />
         <ExpenseCompositionChart summary={financeSummary} />
         <BudgetComparisonChart summary={financeSummary} />
         <InventoryCategoryChart products={products} />

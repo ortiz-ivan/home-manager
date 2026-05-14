@@ -3,6 +3,16 @@ from rest_framework import serializers
 from .models import FinancialEvent, MonthlyClose
 
 
+class CategoryBudgetItemSerializer(serializers.Serializer):
+    category = serializers.CharField()
+    label = serializers.CharField()
+    budget_bucket = serializers.CharField()
+    actual = serializers.FloatField()
+    variable_expense_total = serializers.FloatField()
+    fixed_payment_total = serializers.FloatField()
+    product_restock_total = serializers.FloatField()
+
+
 class BudgetBucketSummarySerializer(serializers.Serializer):
     needs = serializers.FloatField()
     wants = serializers.FloatField()
@@ -59,4 +69,5 @@ class MonthlyFinanceSummarySerializer(serializers.Serializer):
     expense_percentage = serializers.FloatField(allow_null=True)
     remaining_balance = serializers.FloatField()
     rule_50_30_20 = BudgetRuleSummarySerializer()
+    category_breakdown = CategoryBudgetItemSerializer(many=True)
     monthly_close = MonthlyCloseSerializer(allow_null=True)

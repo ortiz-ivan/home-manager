@@ -1,4 +1,5 @@
 export { BudgetComparisonChart } from "./BudgetComparisonChart.jsx";
+export { CategoryBudgetPanel } from "./CategoryBudgetPanel.jsx";
 export { ExpenseCompositionChart } from "./ExpenseCompositionChart.jsx";
 export { FixedExpensesStatusChart } from "./FixedExpensesStatusChart.jsx";
 export { IncomeSourcesChart } from "./IncomeSourcesChart.jsx";

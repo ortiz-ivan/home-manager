@@ -12,7 +12,7 @@ from apps.configuration.models import (
     get_category_fallback_unit_cost,
 )
 from apps.expenses.models import FixedExpense, FixedExpensePayment, Income, VariableExpense
-from apps.purchases.models import Product
+from apps.purchases.models import Product, ProductRestock
 
 from .models import FinancialEvent, MonthlyClose
 
@@ -199,6 +199,70 @@ def get_active_financial_date():
     return date(year, month, 1)
 
 
+def _compute_category_breakdown(month: int, year: int, settings_data: dict) -> list:
+    categories_config = {
+        item["value"]: item
+        for item in settings_data.get("categories", [])
+        if item.get("value")
+    }
+
+    breakdown = {}
+
+    def get_or_create(category):
+        if category not in breakdown:
+            cfg = categories_config.get(category, {})
+            breakdown[category] = {
+                "category": category,
+                "label": cfg.get("label", category),
+                "budget_bucket": cfg.get("budget_bucket", "needs"),
+                "actual": Decimal("0"),
+                "variable_expense_total": Decimal("0"),
+                "fixed_payment_total": Decimal("0"),
+                "product_restock_total": Decimal("0"),
+            }
+        return breakdown[category]
+
+    for expense in VariableExpense.objects.filter(date__year=year, date__month=month):
+        entry = get_or_create(expense.category or "other")
+        amount = _to_decimal(expense.amount)
+        entry["variable_expense_total"] += amount
+        entry["actual"] += amount
+
+    for payment in FixedExpensePayment.objects.filter(
+        fixed_expense__is_active=True,
+        date__year=year,
+        date__month=month,
+    ).select_related("fixed_expense"):
+        entry = get_or_create(payment.fixed_expense.category or "other")
+        amount = _to_decimal(payment.amount)
+        entry["fixed_payment_total"] += amount
+        entry["actual"] += amount
+
+    for restock in ProductRestock.objects.filter(
+        date__year=year,
+        date__month=month,
+        unit_cost__isnull=False,
+    ).select_related("product"):
+        entry = get_or_create(restock.product.category or "other")
+        amount = _to_decimal(restock.unit_cost) * _to_decimal(restock.quantity)
+        entry["product_restock_total"] += amount
+        entry["actual"] += amount
+
+    result = [
+        {
+            "category": e["category"],
+            "label": e["label"],
+            "budget_bucket": e["budget_bucket"],
+            "actual": float(round(e["actual"], 2)),
+            "variable_expense_total": float(round(e["variable_expense_total"], 2)),
+            "fixed_payment_total": float(round(e["fixed_payment_total"], 2)),
+            "product_restock_total": float(round(e["product_restock_total"], 2)),
+        }
+        for e in breakdown.values()
+    ]
+    return sorted(result, key=lambda x: x["actual"], reverse=True)
+
+
 def calculate_monthly_finance_summary(month: int, year: int):
     settings_data = InventorySettings.get_solo().get_config()
     frequency_weight = settings_data.get("usage_frequency_weights", {})
@@ -274,6 +338,7 @@ def calculate_monthly_finance_summary(month: int, year: int):
     }
 
     monthly_close = MonthlyClose.objects.filter(month=month, year=year).first()
+    category_breakdown = _compute_category_breakdown(month, year, settings_data)
 
     return {
         "month": month,
@@ -290,6 +355,7 @@ def calculate_monthly_finance_summary(month: int, year: int):
             "actuals": {bucket: float(value) for bucket, value in budget_actuals.items()},
             "variance": {bucket: float(value) for bucket, value in budget_variance.items()},
         },
+        "category_breakdown": category_breakdown,
         "monthly_close": _snapshot_monthly_close(monthly_close) if monthly_close else None,
     }
 
