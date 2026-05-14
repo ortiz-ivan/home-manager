@@ -1649,6 +1649,52 @@ select:focus {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.projection-section,
+.anomalies-section {
+  display: grid;
+  gap: 12px;
+}
+
+.anomalies-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.anomalies-list {
+  display: grid;
+  gap: 8px;
+}
+
+.anomaly-badge {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-elevated);
+  color: var(--text-soft);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  align-self: center;
+}
+
+.projection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.projection-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.projection-days {
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
 .finance-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

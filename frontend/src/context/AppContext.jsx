@@ -37,6 +37,7 @@ const EMPTY_FINANCE_SUMMARY = {
     actuals: { needs: 0, wants: 0, savings: 0 },
     variance: { needs: 0, wants: 0, savings: 0 },
   },
+  projection: null,
 };
 
 export function AppProvider({ children }) {

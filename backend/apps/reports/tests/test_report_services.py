@@ -5,8 +5,10 @@ import pytest
 from django.utils import timezone
 
 from apps.expenses.models import FixedExpense, FixedExpensePayment, Income, VariableExpense
+from apps.purchases.models import Product, ProductRestock
 from apps.reports.models import FinancialEvent, MonthlyClose
 from apps.reports.services import (
+    _compute_monthly_projection,
     calculate_monthly_finance_summary,
     create_monthly_close,
     get_active_financial_period,
@@ -108,6 +110,7 @@ class TestCalculateMonthlyFinanceSummary:
             "month", "year", "total_income", "home_estimated_expenses",
             "fixed_estimated_expenses", "variable_expenses", "estimated_expenses",
             "expense_percentage", "remaining_balance", "rule_50_30_20", "monthly_close",
+            "projection",
         }
         assert expected_keys.issubset(summary.keys())
 
@@ -187,3 +190,104 @@ class TestGetActiveFinancialPeriod:
         month, year = get_active_financial_period()
         assert month == today.month
         assert year == today.year
+
+
+# ---------------------------------------------------------------------------
+# _compute_monthly_projection
+# ---------------------------------------------------------------------------
+
+class TestComputeMonthlyProjection:
+    TODAY = date(2025, MONTH, 15)
+
+    def test_es_mes_actual_cuando_today_coincide(self, db):
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("0"), today=self.TODAY)
+        assert proj["is_current_month"] is True
+
+    def test_no_es_mes_actual_para_mes_pasado(self, db):
+        proj = _compute_monthly_projection(MONTH - 1, YEAR, Decimal("0"), today=self.TODAY)
+        assert proj["is_current_month"] is False
+
+    def test_days_elapsed_igual_a_dia_de_today(self, db):
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("0"), today=self.TODAY)
+        assert proj["days_elapsed"] == self.TODAY.day
+
+    def test_days_elapsed_igual_a_days_total_en_mes_pasado(self, db):
+        proj = _compute_monthly_projection(MONTH - 1, YEAR, Decimal("0"), today=self.TODAY)
+        assert proj["days_elapsed"] == proj["days_total"]
+
+    def test_gasto_real_incluye_variables_y_pagos_fijos(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("300"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5),
+        )
+        expense = FixedExpense.objects.create(
+            name="Alquiler", category="home", budget_bucket="needs",
+            monthly_amount=Decimal("500"), is_active=True,
+        )
+        FixedExpensePayment.objects.create(
+            fixed_expense=expense, date=date(YEAR, MONTH, 1), amount=Decimal("500"),
+        )
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("2000"), today=self.TODAY)
+        assert proj["actual_spend_so_far"] == pytest.approx(800.0)
+
+    def test_gasto_real_incluye_reposiciones_con_costo(self, db):
+        product = Product.objects.create(
+            name="Arroz", category="food", stock=10, stock_min=2,
+        )
+        ProductRestock.objects.create(
+            product=product, quantity=Decimal("5"), unit_cost=Decimal("20"),
+            date=date(YEAR, MONTH, 3),
+        )
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("2000"), today=self.TODAY)
+        assert proj["actual_spend_so_far"] == pytest.approx(100.0)
+
+    def test_proyeccion_calcula_tasa_diaria(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("150"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5),
+        )
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("2000"), today=self.TODAY)
+        expected_rate = 150.0 / self.TODAY.day
+        assert proj["daily_rate"] == pytest.approx(expected_rate, abs=0.01)
+
+    def test_proyeccion_fin_de_mes(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("150"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5),
+        )
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("2000"), today=self.TODAY)
+        expected_end = (150.0 / self.TODAY.day) * proj["days_total"]
+        assert proj["projected_month_end"] == pytest.approx(expected_end, abs=0.01)
+
+    def test_alerta_no_income_cuando_sin_ingresos(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("100"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5),
+        )
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("0"), today=self.TODAY)
+        codes = [a["code"] for a in proj["alerts"]]
+        assert "no_income" in codes
+
+    def test_alerta_deficit_cuando_proyeccion_supera_ingreso(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("900"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 1),
+        )
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("500"), today=self.TODAY)
+        codes = [a["code"] for a in proj["alerts"]]
+        assert "budget_overrun" in codes
+        assert proj["alerts"][0]["level"] == "danger"
+
+    def test_sin_alertas_para_mes_pasado(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("9000"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH - 1, 5),
+        )
+        proj = _compute_monthly_projection(MONTH - 1, YEAR, Decimal("100"), today=self.TODAY)
+        assert proj["alerts"] == []
+
+    def test_sin_gastos_no_hay_proyeccion(self, db):
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("2000"), today=self.TODAY)
+        assert proj["actual_spend_so_far"] == 0.0
+        assert proj["daily_rate"] == 0.0
+        assert proj["projected_month_end"] == 0.0

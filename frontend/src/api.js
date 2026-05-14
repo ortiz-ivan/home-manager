@@ -31,6 +31,7 @@ const PATHS = {
   monthlyCloses: "monthly-closes/",
   monthlyFinanceSummary: "monthly-finance-summary/",
   householdInsights: "household-insights/",
+  financialAnomalies: "financial-anomalies/",
   settings: "settings/",
 };
 
@@ -248,4 +249,8 @@ export function contributeToGoal(id, amount) {
 
 export function getHouseholdInsights(dateFrom, dateTo, filters = {}) {
   return request(buildUrl(PATHS.householdInsights, { from: dateFrom, to: dateTo, ...filters }));
+}
+
+export function getFinancialAnomalies(month, year) {
+  return request(buildUrl(PATHS.financialAnomalies, { month, year }));
 }

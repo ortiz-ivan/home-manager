@@ -172,9 +172,12 @@ class InventorySettingsSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "updated_at"]
 
     def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data["config"] = merge_inventory_settings(instance.config)
-        return data
+        original_config = instance.config
+        instance.config = merge_inventory_settings(original_config)
+        try:
+            return super().to_representation(instance)
+        finally:
+            instance.config = original_config
 
     def update(self, instance, validated_data):
         config = validated_data.get("config")

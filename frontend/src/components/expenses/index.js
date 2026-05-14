@@ -1,6 +1,8 @@
 export { ExpensesHeader } from "./ExpensesHeader.jsx";
 export { ExpensesModals } from "./ExpensesModals.jsx";
+export { FinancialAnomaliesSection } from "./FinancialAnomaliesSection.jsx";
 export { FinanceSummaryCards } from "./FinanceSummaryCards.jsx";
+export { ProjectionSection } from "./ProjectionSection.jsx";
 export { FinancialTimelineSection } from "./FinancialTimelineSection.jsx";
 export { FixedExpenseForm } from "./FixedExpenseForm.jsx";
 export { FixedExpenseDetailModal } from "./FixedExpenseDetailModal.jsx";

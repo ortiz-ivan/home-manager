@@ -263,6 +263,70 @@ def _compute_category_breakdown(month: int, year: int, settings_data: dict) -> l
     return sorted(result, key=lambda x: x["actual"], reverse=True)
 
 
+def _compute_monthly_projection(month: int, year: int, total_income: Decimal, today=None):
+    today = today or timezone.localdate()
+    is_current_month = today.year == year and today.month == month
+    days_total = calendar.monthrange(year, month)[1]
+    days_elapsed = today.day if is_current_month else days_total
+
+    var_total = _to_decimal(
+        VariableExpense.objects.filter(date__year=year, date__month=month)
+        .aggregate(s=Sum("amount"))["s"]
+    )
+    fixed_total = _to_decimal(
+        FixedExpensePayment.objects.filter(
+            fixed_expense__is_active=True, date__year=year, date__month=month,
+        ).aggregate(s=Sum("amount"))["s"]
+    )
+    restock_total = Decimal("0")
+    for restock in ProductRestock.objects.filter(date__year=year, date__month=month, unit_cost__isnull=False):
+        restock_total += _to_decimal(restock.unit_cost) * _to_decimal(restock.quantity)
+
+    actual_spend = var_total + fixed_total + restock_total
+
+    daily_rate = projected_month_end = projected_remaining = projected_expense_pct = None
+    if days_elapsed > 0:
+        daily_rate = actual_spend / Decimal(days_elapsed)
+        projected_month_end = daily_rate * Decimal(days_total)
+        projected_remaining = total_income - projected_month_end
+        if total_income > 0:
+            projected_expense_pct = (projected_month_end / total_income) * 100
+
+    alerts = []
+    if is_current_month:
+        if total_income <= 0:
+            alerts.append({
+                "level": "warning",
+                "code": "no_income",
+                "message": "No hay ingresos registrados este mes.",
+            })
+        elif projected_month_end is not None:
+            if projected_month_end > total_income:
+                alerts.append({
+                    "level": "danger",
+                    "code": "budget_overrun",
+                    "message": "Al ritmo actual cerrarás el mes en déficit.",
+                })
+            elif projected_expense_pct is not None and projected_expense_pct > Decimal("90"):
+                alerts.append({
+                    "level": "warning",
+                    "code": "pace_high",
+                    "message": f"Al ritmo actual gastarás el {float(projected_expense_pct):.0f}% de tus ingresos.",
+                })
+
+    return {
+        "is_current_month": is_current_month,
+        "days_elapsed": days_elapsed,
+        "days_total": days_total,
+        "actual_spend_so_far": float(round(actual_spend, 2)),
+        "daily_rate": float(round(daily_rate, 2)) if daily_rate is not None else None,
+        "projected_month_end": float(round(projected_month_end, 2)) if projected_month_end is not None else None,
+        "projected_remaining": float(round(projected_remaining, 2)) if projected_remaining is not None else None,
+        "projected_expense_pct": float(round(projected_expense_pct, 2)) if projected_expense_pct is not None else None,
+        "alerts": alerts,
+    }
+
+
 def calculate_monthly_finance_summary(month: int, year: int):
     settings_data = InventorySettings.get_solo().get_config()
     frequency_weight = settings_data.get("usage_frequency_weights", {})
@@ -339,6 +403,7 @@ def calculate_monthly_finance_summary(month: int, year: int):
 
     monthly_close = MonthlyClose.objects.filter(month=month, year=year).first()
     category_breakdown = _compute_category_breakdown(month, year, settings_data)
+    projection = _compute_monthly_projection(month, year, total_income)
 
     return {
         "month": month,
@@ -357,6 +422,7 @@ def calculate_monthly_finance_summary(month: int, year: int):
         },
         "category_breakdown": category_breakdown,
         "monthly_close": _snapshot_monthly_close(monthly_close) if monthly_close else None,
+        "projection": projection,
     }
 
 
@@ -394,3 +460,186 @@ def create_monthly_close(month: int, year: int, notes="", auto_generated=False):
             },
         )
         return monthly_close
+
+
+# ---------------------------------------------------------------------------
+# Anomaly detection
+# ---------------------------------------------------------------------------
+
+def _get_historical_category_averages(current_month: int, current_year: int, lookback_months: int = 3):
+    """
+    Returns (averages_dict, actual_lookback_count) where averages_dict maps
+    category → average spend computed only over months where the category had
+    non-zero spend (requires at least 2 such months to avoid single-sample noise).
+    """
+    closes = MonthlyClose.objects.order_by("-year", "-month")
+    target_closes = []
+    for close in closes:
+        if (close.year, close.month) < (current_year, current_month):
+            target_closes.append(close)
+            if len(target_closes) >= lookback_months:
+                break
+
+    if not target_closes:
+        return {}, 0
+
+    category_totals: dict[str, float] = {}
+    category_counts: dict[str, int] = {}
+
+    for close in target_closes:
+        for item in close.summary_snapshot.get("category_breakdown", []):
+            cat = item.get("category")
+            actual = float(item.get("actual", 0))
+            if cat and actual > 0:
+                category_totals[cat] = category_totals.get(cat, 0) + actual
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+
+    averages = {
+        cat: total / category_counts[cat]
+        for cat, total in category_totals.items()
+        if category_counts.get(cat, 0) >= 2
+    }
+    return averages, len(target_closes)
+
+
+def _detect_category_spikes(
+    current_breakdown: list,
+    historical_avgs: dict,
+    settings_data: dict,
+    lookback_count: int,
+    spike_warning_pct: float = 50.0,
+    spike_danger_pct: float = 100.0,
+    min_historical_amount: float = 500.0,
+) -> list:
+    category_labels = {
+        item["value"]: item.get("label", item["value"])
+        for item in settings_data.get("categories", [])
+    }
+    anomalies = []
+    for item in current_breakdown:
+        cat = item["category"]
+        current_amount = float(item["actual"])
+        historical_avg = historical_avgs.get(cat)
+
+        if historical_avg is None or historical_avg < min_historical_amount:
+            continue
+        if current_amount <= 0:
+            continue
+
+        deviation_pct = ((current_amount - historical_avg) / historical_avg) * 100
+
+        if deviation_pct >= spike_danger_pct:
+            level = "danger"
+        elif deviation_pct >= spike_warning_pct:
+            level = "warning"
+        else:
+            continue
+
+        cat_label = category_labels.get(cat, cat)
+        anomalies.append({
+            "type": "category_spike",
+            "level": level,
+            "title": f"{cat_label}: gasto un {deviation_pct:.0f}% por encima del promedio",
+            "description": f"Este mes: {current_amount:,.0f} | Promedio ({lookback_count} mes{'es' if lookback_count != 1 else ''}): {historical_avg:,.0f}",
+            "category": cat,
+            "category_label": cat_label,
+            "current_amount": round(current_amount, 2),
+            "reference_amount": round(historical_avg, 2),
+            "deviation_pct": round(deviation_pct, 1),
+            "product_id": None,
+            "product_name": None,
+            "days_since_last_restock": None,
+            "avg_restock_interval_days": None,
+        })
+    return anomalies
+
+
+def _detect_restock_anomalies(
+    today=None,
+    fast_threshold: float = 0.5,
+    slow_threshold: float = 2.0,
+    min_restocks: int = 3,
+    min_avg_interval_days: float = 5.0,
+) -> list:
+    today = today or timezone.localdate()
+    anomalies = []
+
+    for product in Product.objects.filter(is_active=True, type="consumable"):
+        restock_dates = list(
+            ProductRestock.objects.filter(product=product)
+            .order_by("date")
+            .values_list("date", flat=True)
+        )
+        if len(restock_dates) < min_restocks:
+            continue
+
+        intervals = [
+            (restock_dates[i + 1] - restock_dates[i]).days
+            for i in range(len(restock_dates) - 1)
+        ]
+        avg_interval = sum(intervals) / len(intervals)
+        if avg_interval < min_avg_interval_days:
+            continue
+
+        days_since_last = (today - restock_dates[-1]).days
+
+        if days_since_last < avg_interval * fast_threshold:
+            deviation_pct = round(((days_since_last / avg_interval) - 1) * 100, 1)
+            anomalies.append({
+                "type": "fast_restock",
+                "level": "info",
+                "title": f"{product.name}: reposicion mas frecuente que lo habitual",
+                "description": f"Repuesto hace {days_since_last} días (promedio: {round(avg_interval)} días)",
+                "category": None,
+                "category_label": None,
+                "current_amount": None,
+                "reference_amount": None,
+                "deviation_pct": deviation_pct,
+                "product_id": product.id,
+                "product_name": product.name,
+                "days_since_last_restock": days_since_last,
+                "avg_restock_interval_days": round(avg_interval, 1),
+            })
+        elif days_since_last > avg_interval * slow_threshold:
+            deviation_pct = round(((days_since_last / avg_interval) - 1) * 100, 1)
+            anomalies.append({
+                "type": "slow_restock",
+                "level": "warning",
+                "title": f"{product.name}: sin reposición por más tiempo que lo habitual",
+                "description": f"Sin reponer hace {days_since_last} días (promedio: {round(avg_interval)} días)",
+                "category": None,
+                "category_label": None,
+                "current_amount": None,
+                "reference_amount": None,
+                "deviation_pct": deviation_pct,
+                "product_id": product.id,
+                "product_name": product.name,
+                "days_since_last_restock": days_since_last,
+                "avg_restock_interval_days": round(avg_interval, 1),
+            })
+    return anomalies
+
+
+def detect_financial_anomalies(month: int, year: int, today=None) -> dict:
+    settings_data = InventorySettings.get_solo().get_config()
+    current_breakdown = _compute_category_breakdown(month, year, settings_data)
+    historical_avgs, lookback_count = _get_historical_category_averages(month, year)
+
+    anomalies = []
+
+    if lookback_count >= 1:
+        anomalies += _detect_category_spikes(
+            current_breakdown, historical_avgs, settings_data, lookback_count,
+        )
+
+    anomalies += _detect_restock_anomalies(today=today or timezone.localdate())
+
+    level_order = {"danger": 0, "warning": 1, "info": 2}
+    anomalies.sort(key=lambda a: level_order.get(a["level"], 9))
+
+    return {
+        "month": month,
+        "year": year,
+        "lookback_months": lookback_count,
+        "anomalies": anomalies,
+    }

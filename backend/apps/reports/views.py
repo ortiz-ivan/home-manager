@@ -4,8 +4,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import FinancialEvent, MonthlyClose
-from .serializers import FinancialEventSerializer, MonthlyCloseSerializer, MonthlyFinanceSummarySerializer
-from .services import calculate_monthly_finance_summary, create_monthly_close, get_active_financial_period
+from .serializers import (
+    FinancialAnomaliesReportSerializer,
+    FinancialEventSerializer,
+    MonthlyCloseSerializer,
+    MonthlyFinanceSummarySerializer,
+)
+from .services import (
+    calculate_monthly_finance_summary,
+    create_monthly_close,
+    detect_financial_anomalies,
+    get_active_financial_period,
+)
 
 
 def resolve_month_year(query_params):
@@ -83,3 +93,16 @@ class MonthlyCloseView(APIView):
 
         serializer = MonthlyCloseSerializer(monthly_close)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class FinancialAnomaliesView(APIView):
+    serializer_class = FinancialAnomaliesReportSerializer
+
+    def get(self, request):
+        try:
+            month, year = resolve_month_year(request.query_params)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = detect_financial_anomalies(month, year)
+        return Response(FinancialAnomaliesReportSerializer(data).data)

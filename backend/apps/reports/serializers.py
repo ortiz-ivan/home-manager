@@ -58,6 +58,47 @@ class FinancialEventSerializer(serializers.ModelSerializer):
         ]
 
 
+class ProjectionAlertSerializer(serializers.Serializer):
+    level = serializers.CharField()
+    code = serializers.CharField()
+    message = serializers.CharField()
+
+
+class MonthlyProjectionSerializer(serializers.Serializer):
+    is_current_month = serializers.BooleanField()
+    days_elapsed = serializers.IntegerField()
+    days_total = serializers.IntegerField()
+    actual_spend_so_far = serializers.FloatField()
+    daily_rate = serializers.FloatField(allow_null=True)
+    projected_month_end = serializers.FloatField(allow_null=True)
+    projected_remaining = serializers.FloatField(allow_null=True)
+    projected_expense_pct = serializers.FloatField(allow_null=True)
+    alerts = ProjectionAlertSerializer(many=True)
+
+
+class FinancialAnomalySerializer(serializers.Serializer):
+    type = serializers.CharField()
+    level = serializers.CharField()
+    title = serializers.CharField()
+    description = serializers.CharField()
+    category = serializers.CharField(allow_null=True)
+    category_label = serializers.CharField(allow_null=True)
+    current_amount = serializers.FloatField(allow_null=True)
+    reference_amount = serializers.FloatField(allow_null=True)
+    deviation_pct = serializers.FloatField()
+    product_id = serializers.IntegerField(allow_null=True)
+    product_name = serializers.CharField(allow_null=True)
+    days_since_last_restock = serializers.IntegerField(allow_null=True)
+    avg_restock_interval_days = serializers.FloatField(allow_null=True)
+
+
+class FinancialAnomaliesReportSerializer(serializers.Serializer):
+    month = serializers.IntegerField()
+    year = serializers.IntegerField()
+    lookback_months = serializers.IntegerField()
+    anomalies = FinancialAnomalySerializer(many=True)
+
+
 class MonthlyFinanceSummarySerializer(serializers.Serializer):
     month = serializers.IntegerField()
     year = serializers.IntegerField()
@@ -71,3 +112,4 @@ class MonthlyFinanceSummarySerializer(serializers.Serializer):
     rule_50_30_20 = BudgetRuleSummarySerializer()
     category_breakdown = CategoryBudgetItemSerializer(many=True)
     monthly_close = MonthlyCloseSerializer(allow_null=True)
+    projection = MonthlyProjectionSerializer()

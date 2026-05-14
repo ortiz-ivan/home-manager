@@ -1,10 +1,12 @@
 import {
   ExpensesHeader,
   ExpensesModals,
+  FinancialAnomaliesSection,
   FinancialTimelineSection,
   FinanceSummaryCards,
   FixedExpensesSection,
   IncomeSection,
+  ProjectionSection,
   toInputDate,
   useExpensesPanelController,
   VariableExpensesSection,
@@ -41,6 +43,10 @@ export function ExpensesPanel({
       />
 
       <FinanceSummaryCards summary={summary} />
+
+      <ProjectionSection summary={summary} />
+
+      <FinancialAnomaliesSection summary={summary} />
 
       <div className="finance-grid">
         <FixedExpensesSection
