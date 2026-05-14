@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from apps.configuration.models import InventorySettings
@@ -19,7 +20,7 @@ def _days_until(target_date, today):
     return (target_date - today).days
 
 
-def build_task_linked_context(task):
+def build_task_linked_context(task, settings_data=None):
     integration_kind = task.integration_kind or RecurringTask.INTEGRATION_NONE
     if integration_kind == RecurringTask.INTEGRATION_NONE:
         return None
@@ -39,7 +40,11 @@ def build_task_linked_context(task):
                 "detail": "Revisa la integracion de esta tarea para recuperar el contexto financiero.",
             }
 
-        is_paid_this_month = expense.payments.filter(date__year=today.year, date__month=today.month).exists()
+        prefetched = getattr(expense, "_current_month_payments", None)
+        if prefetched is not None:
+            is_paid_this_month = bool(prefetched)
+        else:
+            is_paid_this_month = expense.payments.filter(date__year=today.year, date__month=today.month).exists()
         due_delta = _days_until(expense.next_due_date, today)
 
         if is_paid_this_month:
@@ -119,7 +124,8 @@ def build_task_linked_context(task):
             "low_stock": low_stock,
         }
 
-    settings_data = InventorySettings.get_solo().get_config()
+    if settings_data is None:
+        settings_data = InventorySettings.get_solo().get_config()
     expiring_soon_days = int(settings_data.get("alerts", {}).get("expiring_soon_days", 14) or 14)
     due_delta = _days_until(product.next_due_date, today)
 
@@ -181,7 +187,7 @@ def _normalize_task_payload(validated_data):
         "interval": validated_data.get("interval", 1),
         "weekday": validated_data.get("weekday"),
         "day_of_month": validated_data.get("day_of_month"),
-        "start_date": validated_data["start_date"],
+        "start_date": validated_data.get("start_date", timezone.localdate()),
         "notes": validated_data.get("notes", "").strip(),
         "is_active": validated_data.get("is_active", True),
     }
@@ -219,12 +225,14 @@ def calculate_first_due_date(start_date, frequency_type, weekday=None, day_of_mo
         return start_date
 
     if frequency_type == RecurringTask.FREQUENCY_WEEKLY:
-        delta = (int(weekday) - start_date.weekday()) % 7
+        effective_weekday = weekday if weekday is not None else start_date.weekday()
+        delta = (int(effective_weekday) - start_date.weekday()) % 7
         return start_date + timedelta(days=delta)
 
-    candidate = _month_date(start_date.year, start_date.month, int(day_of_month))
+    effective_day = day_of_month if day_of_month is not None else start_date.day
+    candidate = _month_date(start_date.year, start_date.month, int(effective_day))
     if candidate < start_date:
-        candidate = _add_months(candidate, 1, int(day_of_month))
+        candidate = _add_months(candidate, 1, int(effective_day))
     return candidate
 
 
@@ -235,7 +243,8 @@ def calculate_next_due_date(task, current_due_date):
     if task.frequency_type == RecurringTask.FREQUENCY_WEEKLY:
         return current_due_date + timedelta(days=7 * int(task.interval))
 
-    return _add_months(current_due_date, int(task.interval), int(task.day_of_month))
+    effective_day = task.day_of_month if task.day_of_month is not None else current_due_date.day
+    return _add_months(current_due_date, int(task.interval), int(effective_day))
 
 
 def sync_task_occurrences(task, date_from=None, date_to=None):
@@ -331,7 +340,7 @@ def _completed_late(occurrence):
     return occurrence.completed_at.date() > occurrence.due_date
 
 
-def _serialize_task_compliance_item(task, stats):
+def _serialize_task_compliance_item(task, stats, settings_data=None):
     overdue_count = stats["overdue_count"]
     skipped_count = stats["skipped_count"]
     late_completion_count = stats["late_completion_count"]
@@ -345,7 +354,7 @@ def _serialize_task_compliance_item(task, stats):
         "priority": task.priority,
         "estimated_minutes": int(task.estimated_minutes or 0),
         "integration_kind": task.integration_kind,
-        "linked_context": build_task_linked_context(task),
+        "linked_context": build_task_linked_context(task, settings_data),
         "overdue_count": overdue_count,
         "skipped_count": skipped_count,
         "late_completion_count": late_completion_count,
@@ -360,7 +369,23 @@ def build_household_insights(date_from, date_to, filters=None):
     filters = filters or {}
     ensure_occurrences_for_range(date_from, date_to)
 
-    occurrences = TaskOccurrence.objects.select_related("recurring_task").filter(
+    from apps.expenses.models import FixedExpensePayment
+    _today = timezone.localdate()
+    _month_payments_qs = FixedExpensePayment.objects.filter(
+        date__year=_today.year, date__month=_today.month
+    )
+
+    occurrences = TaskOccurrence.objects.select_related(
+        "recurring_task",
+        "recurring_task__linked_fixed_expense",
+        "recurring_task__linked_product",
+    ).prefetch_related(
+        Prefetch(
+            "recurring_task__linked_fixed_expense__payments",
+            queryset=_month_payments_qs,
+            to_attr="_current_month_payments",
+        )
+    ).filter(
         recurring_task__is_active=True,
         due_date__gte=date_from,
         due_date__lte=date_to,
@@ -375,6 +400,7 @@ def build_household_insights(date_from, date_to, filters=None):
 
     occurrences = list(occurrences.order_by("due_date", "id"))
     today = timezone.localdate()
+    settings_data = InventorySettings.get_solo().get_config()
 
     task_stats = defaultdict(lambda: {"task": None, "overdue_count": 0, "skipped_count": 0, "late_completion_count": 0})
     week_stats = defaultdict(lambda: {"total_due": 0, "completed": 0, "skipped": 0, "overdue_open": 0, "estimated_minutes": 0})
@@ -424,7 +450,7 @@ def build_household_insights(date_from, date_to, filters=None):
         current_week_start += timedelta(days=7)
 
     task_items = [
-        _serialize_task_compliance_item(entry["task"], entry)
+        _serialize_task_compliance_item(entry["task"], entry, settings_data)
         for entry in task_stats.values()
         if entry["task"] is not None
     ]

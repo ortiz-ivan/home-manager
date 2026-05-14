@@ -98,6 +98,7 @@ class TaskOccurrenceListView(generics.ListAPIView):
 
 class HouseholdInsightsView(generics.GenericAPIView):
     serializer_class = HouseholdInsightsSerializer
+    pagination_class = None
 
     def get(self, request, *args, **kwargs):
         today = timezone.localdate()

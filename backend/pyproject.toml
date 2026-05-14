@@ -1,0 +1,13 @@
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["apps", "core"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.test_settings"
+testpaths = ["apps"]
+addopts = "--import-mode=importlib"

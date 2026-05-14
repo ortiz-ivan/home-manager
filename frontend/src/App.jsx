@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -18,12 +18,11 @@ import {
   Zap,
 } from "lucide-react";
 import "./App.css";
+import { AppProvider, useAppContext } from "./context/AppContext.jsx";
 import { PurchasesView } from "./components/PurchasesView.jsx";
 import { ExpensesPanel } from "./components/ExpensesPanel.jsx";
 import { ReportsView } from "./components/ReportsView.jsx";
 import {
-  addDays,
-  formatDateInput,
   getHouseholdAgendaBuckets,
   getHouseholdReminderSummary,
   HouseholdDashboardSection,
@@ -33,25 +32,11 @@ import { GoalsView } from "./components/goals/index.js";
 import { ProductForm, ProductList } from "./components/inventory/index.js";
 import { SettingsView } from "./components/settings/index.js";
 import {
-  getInventorySettings,
-  getMonthlyFinanceSummary,
-  listTaskOccurrences,
-  listFinancialEvents,
-  listFixedExpenses,
-  listIncomes,
-  listMonthlyCloses,
-  listProducts,
-  listVariableExpenses,
-  updateInventorySettings,
-} from "./api.js";
-import {
   formatCurrency,
   getCategoryFallbackUnitCost,
   getCategoryLabel,
   getUsageFrequencyWeight,
   isHomeInventoryCategory,
-  normalizeInventorySettings,
-  setCurrentInventorySettings,
 } from "./constants/inventory.js";
 
 const MODULES = [
@@ -66,21 +51,13 @@ const MODULES = [
 ];
 
 function daysBetween(dateString) {
-  if (!dateString) {
-    return null;
-  }
-
+  if (!dateString) return null;
   const target = new Date(dateString);
-  if (Number.isNaN(target.getTime())) {
-    return null;
-  }
-
+  if (Number.isNaN(target.getTime())) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   target.setHours(0, 0, 0, 0);
-
-  const diff = target.getTime() - today.getTime();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function formatPeriodInputValue(month, year) {
@@ -91,17 +68,13 @@ function getDefaultFinancePeriodValue(summary) {
   if (summary?.month && summary?.year) {
     return formatPeriodInputValue(summary.month, summary.year);
   }
-
   const now = new Date();
   return formatPeriodInputValue(now.getMonth() + 1, now.getFullYear());
 }
 
 function parsePeriodInputValue(value) {
   const [year, month] = String(value || "").split("-");
-  return {
-    month: Number(month),
-    year: Number(year),
-  };
+  return { month: Number(month), year: Number(year) };
 }
 
 function DashboardView({
@@ -239,202 +212,80 @@ function DashboardView({
   );
 }
 
-function PlaceholderModule({ title, description }) {
-  return (
-    <section className="module-content fade-in">
-      <div className="section-header">
-        <h2>{title}</h2>
-        <p>{description}</p>
-      </div>
-      <article className="panel placeholder">
-        <p>Este modulo queda listo para conectar con datos reales del backend.</p>
-      </article>
-    </section>
-  );
-}
+function AppShell() {
+  const {
+    products,
+    fixedExpenses,
+    incomes,
+    variableExpenses,
+    financialEvents,
+    monthlyCloses,
+    householdOccurrences,
+    inventorySettings,
+    financeSummary,
+    loading,
+    loadingSettings,
+    selectedFinancePeriod,
+    setSelectedFinancePeriod,
+    refreshAllData,
+    saveSettings,
+    appError,
+    clearAppError,
+  } = useAppContext();
 
-function App() {
   const [route, setRoute] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [fixedExpenses, setFixedExpenses] = useState([]);
-  const [incomes, setIncomes] = useState([]);
-  const [variableExpenses, setVariableExpenses] = useState([]);
-  const [financialEvents, setFinancialEvents] = useState([]);
-  const [monthlyCloses, setMonthlyCloses] = useState([]);
-  const [householdOccurrences, setHouseholdOccurrences] = useState([]);
-  const [inventorySettings, setInventorySettings] = useState(() => normalizeInventorySettings());
-  const [financeSummary, setFinanceSummary] = useState({
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear(),
-    total_income: 0,
-    home_estimated_expenses: 0,
-    fixed_estimated_expenses: 0,
-    variable_expenses: 0,
-    estimated_expenses: 0,
-    expense_percentage: null,
-    remaining_balance: 0,
-    rule_50_30_20: {
-      targets: { needs: 0, wants: 0, savings: 0 },
-      actuals: { needs: 0, wants: 0, savings: 0 },
-      variance: { needs: 0, wants: 0, savings: 0 },
-    },
-  });
-  const [loading, setLoading] = useState(true);
-  const [loadingSettings, setLoadingSettings] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFinancePeriod, setSelectedFinancePeriod] = useState(null);
 
   const navigateTo = (moduleKey) => {
     setRoute(moduleKey);
     setIsModalOpen(false);
   };
 
-  const loadProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await listProducts();
-      setProducts(data || []);
-    } catch (error) {
-      console.error("Error loading products:", error);
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadFinanceData = useCallback(async () => {
-    const selectedMonth = selectedFinancePeriod?.month;
-    const selectedYear = selectedFinancePeriod?.year;
-
-    try {
-      const [fixedExpenseData, incomeData, variableExpenseData, summaryData, financialEventData, monthlyCloseData] = await Promise.all([
-        listFixedExpenses(selectedMonth, selectedYear),
-        listIncomes(selectedMonth, selectedYear),
-        listVariableExpenses(selectedMonth, selectedYear),
-        getMonthlyFinanceSummary(selectedMonth, selectedYear),
-        listFinancialEvents(selectedMonth, selectedYear),
-        listMonthlyCloses(),
-      ]);
-
-      setFixedExpenses(fixedExpenseData || []);
-      setIncomes(incomeData || []);
-      setVariableExpenses(variableExpenseData || []);
-      setFinancialEvents(financialEventData || []);
-      setMonthlyCloses(monthlyCloseData || []);
-      if (summaryData) {
-        setFinanceSummary(summaryData);
-      }
-    } catch (error) {
-      console.error("Error loading finance data:", error);
-      setFixedExpenses([]);
-      setIncomes([]);
-      setVariableExpenses([]);
-      setFinancialEvents([]);
-      setMonthlyCloses([]);
-    }
-  }, [selectedFinancePeriod]);
-
-  const loadInventoryConfig = useCallback(async () => {
-    setLoadingSettings(true);
-    try {
-      const data = await getInventorySettings();
-      const nextSettings = normalizeInventorySettings(data);
-      setInventorySettings(nextSettings);
-      setCurrentInventorySettings(nextSettings);
-    } catch (error) {
-      console.error("Error loading inventory settings:", error);
-      const fallbackSettings = normalizeInventorySettings();
-      setInventorySettings(fallbackSettings);
-      setCurrentInventorySettings(fallbackSettings);
-    } finally {
-      setLoadingSettings(false);
-    }
-  }, []);
-
-  const loadHouseholdAgenda = useCallback(async () => {
-    const dateFrom = formatDateInput(addDays(new Date(), -30));
-    const dateTo = formatDateInput(addDays(new Date(), 7));
-
-    try {
-      const occurrenceData = await listTaskOccurrences(dateFrom, dateTo);
-      setHouseholdOccurrences(occurrenceData || []);
-    } catch (error) {
-      console.error("Error loading household agenda:", error);
-      setHouseholdOccurrences([]);
-    }
-  }, []);
-
-  const refreshAllData = useCallback(async () => {
-    await Promise.all([loadProducts(), loadFinanceData(), loadHouseholdAgenda()]);
-  }, [loadFinanceData, loadHouseholdAgenda, loadProducts]);
-
   useEffect(() => {
-    loadInventoryConfig();
-  }, [loadInventoryConfig]);
-
-  useEffect(() => {
-    if (!loadingSettings) {
-      refreshAllData();
-    }
-  }, [loadingSettings, refreshAllData]);
-
-  useEffect(() => {
-    const handleEsc = (event) => {
-      if (event.key === "Escape") {
-        setIsModalOpen(false);
-      }
-    };
-
-    if (isModalOpen) {
-      document.addEventListener("keydown", handleEsc);
-    }
-
+    if (!isModalOpen) return;
+    const handleEsc = (event) => { if (event.key === "Escape") setIsModalOpen(false); };
+    document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
   }, [isModalOpen]);
 
-  const homeProducts = products.filter((product) => isHomeInventoryCategory(product.category, inventorySettings));
+  const homeProducts = products.filter((p) => isHomeInventoryCategory(p.category, inventorySettings));
 
   const filteredHomeProducts = homeProducts.filter((product) => {
-    const category = getCategoryLabel(product.category, inventorySettings);
     const query = searchQuery.trim().toLowerCase();
-
-    if (!query) {
-      return true;
-    }
-
-    return (
-      product.name.toLowerCase().includes(query) ||
-      String(category).toLowerCase().includes(query)
-    );
+    if (!query) return true;
+    const category = getCategoryLabel(product.category, inventorySettings);
+    return product.name.toLowerCase().includes(query) || String(category).toLowerCase().includes(query);
   });
 
   const lowStockProducts = homeProducts.filter(
-    (product) => product.stock <= Number(product.stock_min || 0) * Number(inventorySettings.thresholds.low_stock_ratio || 1)
+    (p) => p.stock <= Number(p.stock_min || 0) * Number(inventorySettings.thresholds.low_stock_ratio || 1)
   );
   const criticalItems = homeProducts.filter(
-    (product) => (
-      product.stock <= Number(product.stock_min || 0) * Number(inventorySettings.thresholds.critical_stock_ratio || 1) &&
-      inventorySettings.alerts.critical_frequencies.includes(product.usage_frequency)
+    (p) => (
+      p.stock <= Number(p.stock_min || 0) * Number(inventorySettings.thresholds.critical_stock_ratio || 1) &&
+      inventorySettings.alerts.critical_frequencies.includes(p.usage_frequency)
     )
   );
-  const expiringSoon = homeProducts.filter((product) => {
-    const remaining = daysBetween(product.next_due_date);
+  const expiringSoon = homeProducts.filter((p) => {
+    const remaining = daysBetween(p.next_due_date);
     return remaining !== null && remaining >= 0 && remaining <= Number(inventorySettings.alerts.expiring_soon_days || 14);
   });
 
-  const totalStockUnits = homeProducts.reduce((acc, product) => acc + Number(product.stock || 0), 0);
-  const monthlySpendEstimate = homeProducts.reduce((acc, product) => {
-    const fallbackCost = getCategoryFallbackUnitCost(product.category, inventorySettings);
-    const explicitPrice = Number(product.price);
+  const totalStockUnits = homeProducts.reduce((acc, p) => acc + Number(p.stock || 0), 0);
+  const monthlySpendEstimate = homeProducts.reduce((acc, p) => {
+    const fallbackCost = getCategoryFallbackUnitCost(p.category, inventorySettings);
+    const explicitPrice = Number(p.price);
     const baseCost = Number.isNaN(explicitPrice) || explicitPrice <= 0 ? fallbackCost : explicitPrice;
-    const frequency = getUsageFrequencyWeight(product.usage_frequency, inventorySettings);
-    const projectedUnits = product.type === "consumable" ? Number(product.stock_min || 1) : 1;
+    const frequency = getUsageFrequencyWeight(p.usage_frequency, inventorySettings);
+    const projectedUnits = p.type === "consumable" ? Number(p.stock_min || 1) : 1;
     return acc + projectedUnits * baseCost * frequency;
   }, 0);
+
   const householdAgendaSummary = getHouseholdAgendaBuckets(householdOccurrences);
   const householdReminderSummary = getHouseholdReminderSummary(householdOccurrences);
+
   const reminderHeadline = householdReminderSummary.overdue.length > 0
     ? `${householdReminderSummary.overdue.length} tarea(s) atrasadas requieren atencion inmediata.`
     : householdReminderSummary.today.length > 0
@@ -445,7 +296,7 @@ function App() {
           ? `${householdReminderSummary.weekUpcoming.length} tarea(s) quedan pendientes esta semana.`
           : "No hay recordatorios urgentes del hogar ahora mismo.";
 
-  const currentModuleLabel = MODULES.find((module) => module.key === route)?.label || "Dashboard";
+  const currentModuleLabel = MODULES.find((m) => m.key === route)?.label || "Dashboard";
   const showSearch = route === "dashboard" || route === "inventory";
   const showFinancePeriodSelector = route === "dashboard" || route === "reports" || route === "expenses";
   const financePeriodValue = selectedFinancePeriod
@@ -453,18 +304,8 @@ function App() {
     : getDefaultFinancePeriodValue(financeSummary);
 
   const handleFinancePeriodChange = (event) => {
-    const nextValue = event.target.value;
-
-    if (!nextValue) {
-      setSelectedFinancePeriod(null);
-      return;
-    }
-
-    setSelectedFinancePeriod(parsePeriodInputValue(nextValue));
-  };
-
-  const handleResetFinancePeriod = () => {
-    setSelectedFinancePeriod(null);
+    const next = event.target.value;
+    setSelectedFinancePeriod(next ? parsePeriodInputValue(next) : null);
   };
 
   return (
@@ -475,11 +316,10 @@ function App() {
             <h1>DomusOps</h1>
             <p>Control domestico inteligente</p>
           </div>
-
           <button
             className="sidebar-toggle"
             type="button"
-            onClick={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
+            onClick={() => setIsSidebarCollapsed((v) => !v)}
             aria-label={isSidebarCollapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
             aria-pressed={isSidebarCollapsed}
           >
@@ -530,7 +370,7 @@ function App() {
                     onChange={handleFinancePeriodChange}
                     aria-label="Seleccionar periodo financiero"
                   />
-                  <button className="btn btn-outline" type="button" onClick={handleResetFinancePeriod}>
+                  <button className="btn btn-outline" type="button" onClick={() => setSelectedFinancePeriod(null)}>
                     Periodo activo
                   </button>
                 </div>
@@ -542,7 +382,7 @@ function App() {
                 type="search"
                 placeholder="Buscar por nombre o categoria"
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Buscar en inventario"
               />
             )}
@@ -560,6 +400,13 @@ function App() {
             )}
           </div>
         </header>
+
+        {appError && (
+          <div className="app-error-banner" role="alert">
+            <span>{appError}</span>
+            <button type="button" className="app-error-dismiss" onClick={clearAppError} aria-label="Cerrar">✕</button>
+          </div>
+        )}
 
         <section className={`reminder-strip ${householdReminderSummary.overdue.length > 0 ? "is-danger" : householdReminderSummary.today.length > 0 ? "is-warning" : ""}`}>
           <div>
@@ -602,7 +449,7 @@ function App() {
             financeSummary={financeSummary}
             fixedExpenses={fixedExpenses}
             onSelectPeriod={setSelectedFinancePeriod}
-            onResetPeriod={handleResetFinancePeriod}
+            onResetPeriod={() => setSelectedFinancePeriod(null)}
           />
         )}
 
@@ -610,9 +457,7 @@ function App() {
           <section className="module-content fade-in">
             <div className="section-header">
               <h2>Inventario activo</h2>
-              <p>
-                Gestion de productos con buscador, filtros y acciones rapidas.
-              </p>
+              <p>Gestion de productos con buscador, filtros y acciones rapidas.</p>
             </div>
             <ProductList
               products={filteredHomeProducts}
@@ -624,10 +469,7 @@ function App() {
         )}
 
         {route === "purchases" && (
-          <PurchasesView
-            products={homeProducts}
-            onDataChanged={refreshAllData}
-          />
+          <PurchasesView products={homeProducts} onDataChanged={refreshAllData} />
         )}
 
         {route === "expenses" && (
@@ -647,13 +489,7 @@ function App() {
           <SettingsView
             settings={inventorySettings}
             loading={loadingSettings}
-            onSave={async (nextSettings) => {
-              const response = await updateInventorySettings(nextSettings);
-              const updatedSettings = normalizeInventorySettings(response);
-              setInventorySettings(updatedSettings);
-              setCurrentInventorySettings(updatedSettings);
-              await refreshAllData();
-            }}
+            onSave={saveSettings}
           />
         )}
       </section>
@@ -666,7 +502,7 @@ function App() {
           aria-label="Agregar nuevo producto"
           onClick={() => setIsModalOpen(false)}
         >
-          <div className="modal-content compact" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-content compact" onClick={(e) => e.stopPropagation()}>
             <ProductForm
               compact
               onProductCreated={refreshAllData}
@@ -676,6 +512,14 @@ function App() {
         </div>
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AppProvider>
+      <AppShell />
+    </AppProvider>
   );
 }
 

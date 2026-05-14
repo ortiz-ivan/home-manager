@@ -1,18 +1,55 @@
+/**
+ * @typedef {{ month: number, year: number }} Period
+ * @typedef {{ id: number, name: string, category: string, type: string, budget_bucket: string, stock: number, stock_min: number, unit: string, price: number|null, usage_frequency: string, is_active: boolean }} Product
+ * @typedef {{ id: number, amount: string, source: string, notes: string, date: string }} Income
+ * @typedef {{ id: number, name: string, category: string, monthly_amount: string, budget_bucket: string, is_active: boolean, next_due_date: string|null }} FixedExpense
+ * @typedef {{ id: number, amount: string, category: string, description: string, date: string }} VariableExpense
+ * @typedef {{ month: number, year: number, total_income: number, estimated_expenses: number, expense_percentage: number|null, remaining_balance: number, rule_50_30_20: object }} FinanceSummary
+ * @typedef {{ id: number, name: string, goal_type: string, target_amount: string, current_amount: string, is_active: boolean }} SavingsGoal
+ * @typedef {{ id: number, title: string, category: string, area: string, priority: string, frequency_type: string, is_active: boolean }} RecurringTask
+ * @typedef {{ id: number, recurring_task: RecurringTask, due_date: string, status: string }} TaskOccurrence
+ */
+
 function normalizeBaseUrl(url) {
   return url.endsWith("/") ? url : `${url}/`;
 }
 
 const API_BASE = normalizeBaseUrl(
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/inventory/",
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1/",
 );
-const PRODUCTS_PATH = "products/";
-const FIXED_EXPENSES_PATH = "fixed-expenses/";
-const RECURRING_TASKS_PATH = "recurring-tasks/";
+const API_KEY = import.meta.env.VITE_API_KEY || "";
+
+const PATHS = {
+  products: "products/",
+  fixedExpenses: "fixed-expenses/",
+  incomes: "incomes/",
+  variableExpenses: "variable-expenses/",
+  recurringTasks: "recurring-tasks/",
+  taskOccurrences: "task-occurrences/",
+  savingsGoals: "savings-goals/",
+  financialEvents: "financial-events/",
+  monthlyCloses: "monthly-closes/",
+  monthlyFinanceSummary: "monthly-finance-summary/",
+  householdInsights: "household-insights/",
+  settings: "settings/",
+};
+
+function buildUrl(base, params = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  }
+  const qs = query.toString();
+  return qs ? `${base}?${qs}` : base;
+}
 
 async function request(path = "", options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(API_KEY ? { "X-Api-Key": API_KEY } : {}),
       ...(options.headers || {}),
     },
     ...options,
@@ -26,367 +63,189 @@ async function request(path = "", options = {}) {
     throw new Error(detail);
   }
 
+  if (data !== null && typeof data === "object" && Array.isArray(data.results)) {
+    return data.results;
+  }
+
   return data;
 }
 
+/** @returns {Promise<Product[]>} */
 export function listProducts() {
-  return request(PRODUCTS_PATH);
+  return request(PATHS.products);
 }
 
 export function createProduct(payload) {
-  return request(PRODUCTS_PATH, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(PATHS.products, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function updateProduct(id, payload) {
-  return request(`${PRODUCTS_PATH}${id}/`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.products}${id}/`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export function deleteProduct(id) {
-  return request(`${PRODUCTS_PATH}${id}/`, {
-    method: "DELETE",
-  });
+  return request(`${PATHS.products}${id}/`, { method: "DELETE" });
 }
 
 export function consumeProduct(id, quantity = 1) {
-  return request(`${PRODUCTS_PATH}${id}/consume/`, {
-    method: "POST",
-    body: JSON.stringify({ quantity }),
-  });
+  return request(`${PATHS.products}${id}/consume/`, { method: "POST", body: JSON.stringify({ quantity }) });
 }
 
 export function buyProduct(id, quantity = 1) {
-  return request(`${PRODUCTS_PATH}${id}/buy/`, {
-    method: "POST",
-    body: JSON.stringify({ quantity }),
-  });
+  return request(`${PATHS.products}${id}/buy/`, { method: "POST", body: JSON.stringify({ quantity }) });
 }
 
 export function markOutOfStock(id) {
-  return request(`${PRODUCTS_PATH}${id}/out_of_stock/`, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
+  return request(`${PATHS.products}${id}/out_of_stock/`, { method: "POST", body: JSON.stringify({}) });
 }
 
 export function getProductStats(id, days = 90) {
-  return request(`${PRODUCTS_PATH}${id}/stats/?days=${days}`);
+  return request(buildUrl(`${PATHS.products}${id}/stats/`, { days }));
 }
 
 export function listProductConsumptions(id, days = 90) {
-  return request(`${PRODUCTS_PATH}${id}/consumption/?days=${days}`);
+  return request(buildUrl(`${PATHS.products}${id}/consumption/`, { days }));
 }
 
 export function listProductRestocks(id, days = 90) {
-  return request(`${PRODUCTS_PATH}${id}/restocks/?days=${days}`);
+  return request(buildUrl(`${PATHS.products}${id}/restocks/`, { days }));
 }
 
+/** @returns {Promise<FixedExpense[]>} */
 export function listFixedExpenses(month, year) {
-  const query = new URLSearchParams();
-
-  if (month) {
-    query.set("month", String(month));
-  }
-  if (year) {
-    query.set("year", String(year));
-  }
-
-  const suffix = query.toString() ? `${FIXED_EXPENSES_PATH}?${query.toString()}` : FIXED_EXPENSES_PATH;
-  return request(suffix);
+  return request(buildUrl(PATHS.fixedExpenses, { month, year }));
 }
 
 export function createFixedExpense(payload) {
-  return request(FIXED_EXPENSES_PATH, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(PATHS.fixedExpenses, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function updateFixedExpense(id, payload) {
-  return request(`${FIXED_EXPENSES_PATH}${id}/`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.fixedExpenses}${id}/`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export function payFixedExpense(id, payload = {}) {
-  return request(`${FIXED_EXPENSES_PATH}${id}/pay/`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.fixedExpenses}${id}/pay/`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+/** @returns {Promise<Income[]>} */
 export function listIncomes(month, year) {
-  const query = new URLSearchParams();
-
-  if (month) {
-    query.set("month", String(month));
-  }
-  if (year) {
-    query.set("year", String(year));
-  }
-
-  const suffix = query.toString() ? `incomes/?${query.toString()}` : "incomes/";
-  return request(suffix);
+  return request(buildUrl(PATHS.incomes, { month, year }));
 }
 
 export function createIncome(payload) {
-  return request("incomes/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(PATHS.incomes, { method: "POST", body: JSON.stringify(payload) });
 }
 
-export function deleteIncome(id, payload = {}) {
-  return request(`incomes/${id}/`, {
-    method: "DELETE",
-    body: JSON.stringify(payload),
-  });
+export function deleteIncome(id) {
+  return request(`${PATHS.incomes}${id}/`, { method: "DELETE" });
 }
 
 export function updateIncome(id, payload) {
-  return request(`incomes/${id}/`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.incomes}${id}/`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export function listVariableExpenses(month, year) {
-  const query = new URLSearchParams();
-
-  if (month) {
-    query.set("month", String(month));
-  }
-  if (year) {
-    query.set("year", String(year));
-  }
-
-  const suffix = query.toString() ? `variable-expenses/?${query.toString()}` : "variable-expenses/";
-  return request(suffix);
+  return request(buildUrl(PATHS.variableExpenses, { month, year }));
 }
 
 export function createVariableExpense(payload) {
-  return request("variable-expenses/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(PATHS.variableExpenses, { method: "POST", body: JSON.stringify(payload) });
 }
 
-export function deleteVariableExpense(id, payload = {}) {
-  return request(`variable-expenses/${id}/`, {
-    method: "DELETE",
-    body: JSON.stringify(payload),
-  });
+export function deleteVariableExpense(id) {
+  return request(`${PATHS.variableExpenses}${id}/`, { method: "DELETE" });
 }
 
 export function updateVariableExpense(id, payload) {
-  return request(`variable-expenses/${id}/`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.variableExpenses}${id}/`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
+/** @returns {Promise<FinanceSummary>} */
 export function getMonthlyFinanceSummary(month, year) {
-  const query = new URLSearchParams();
-
-  if (month) {
-    query.set("month", String(month));
-  }
-  if (year) {
-    query.set("year", String(year));
-  }
-
-  const suffix = query.toString() ? `monthly-finance-summary/?${query.toString()}` : "monthly-finance-summary/";
-  return request(suffix);
+  return request(buildUrl(PATHS.monthlyFinanceSummary, { month, year }));
 }
 
 export function listFinancialEvents(month, year, limit = 25) {
-  const query = new URLSearchParams();
-
-  if (month) {
-    query.set("month", String(month));
-  }
-  if (year) {
-    query.set("year", String(year));
-  }
-  if (limit) {
-    query.set("limit", String(limit));
-  }
-
-  const suffix = query.toString() ? `financial-events/?${query.toString()}` : "financial-events/";
-  return request(suffix);
+  return request(buildUrl(PATHS.financialEvents, { month, year, limit }));
 }
 
 export function listMonthlyCloses() {
-  return request("monthly-closes/");
+  return request(PATHS.monthlyCloses);
 }
 
 export function createMonthlyClose(payload) {
-  return request("monthly-closes/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(PATHS.monthlyCloses, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function getInventorySettings() {
-  return request("settings/");
+  return request(PATHS.settings);
 }
 
 export function updateInventorySettings(config) {
-  return request("settings/", {
-    method: "PUT",
-    body: JSON.stringify({ config }),
-  });
+  return request(PATHS.settings, { method: "PUT", body: JSON.stringify({ config }) });
 }
 
+/** @returns {Promise<RecurringTask[]>} */
 export function listRecurringTasks(filters = {}) {
-  const query = new URLSearchParams();
-  if (filters.category) {
-    query.set("category", String(filters.category));
-  }
-  if (filters.area) {
-    query.set("area", String(filters.area));
-  }
-  if (filters.priority) {
-    query.set("priority", String(filters.priority));
-  }
-
-  const suffix = query.toString() ? `${RECURRING_TASKS_PATH}?${query.toString()}` : RECURRING_TASKS_PATH;
-  return request(suffix);
+  return request(buildUrl(PATHS.recurringTasks, filters));
 }
 
 export function createRecurringTask(payload) {
-  return request(RECURRING_TASKS_PATH, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(PATHS.recurringTasks, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function updateRecurringTask(id, payload) {
-  return request(`${RECURRING_TASKS_PATH}${id}/`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.recurringTasks}${id}/`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export function deleteRecurringTask(id) {
-  return request(`${RECURRING_TASKS_PATH}${id}/`, {
-    method: "DELETE",
-  });
+  return request(`${PATHS.recurringTasks}${id}/`, { method: "DELETE" });
 }
 
+/** @returns {Promise<TaskOccurrence[]>} */
 export function listTaskOccurrences(dateFrom, dateTo, status, filters = {}) {
-  const query = new URLSearchParams();
-
-  if (dateFrom) {
-    query.set("from", String(dateFrom));
-  }
-  if (dateTo) {
-    query.set("to", String(dateTo));
-  }
-  if (status) {
-    query.set("status", String(status));
-  }
-  if (filters.category) {
-    query.set("category", String(filters.category));
-  }
-  if (filters.area) {
-    query.set("area", String(filters.area));
-  }
-  if (filters.priority) {
-    query.set("priority", String(filters.priority));
-  }
-
-  const suffix = query.toString() ? `task-occurrences/?${query.toString()}` : "task-occurrences/";
-  return request(suffix);
+  return request(buildUrl(PATHS.taskOccurrences, {
+    from: dateFrom,
+    to: dateTo,
+    status,
+    ...filters,
+  }));
 }
 
 export function completeTaskOccurrence(id, payload = {}) {
-  return request(`task-occurrences/${id}/complete/`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.taskOccurrences}${id}/complete/`, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function skipTaskOccurrence(id, payload = {}) {
-  return request(`task-occurrences/${id}/skip/`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.taskOccurrences}${id}/skip/`, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function reopenTaskOccurrence(id) {
-  return request(`task-occurrences/${id}/reopen/`, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
+  return request(`${PATHS.taskOccurrences}${id}/reopen/`, { method: "POST", body: JSON.stringify({}) });
 }
 
-const SAVINGS_GOALS_PATH = "savings-goals/";
-
+/** @returns {Promise<SavingsGoal[]>} */
 export function listSavingsGoals(filters = {}) {
-  const query = new URLSearchParams();
-  if (filters.goal_type) {
-    query.set("goal_type", String(filters.goal_type));
-  }
-  if (filters.is_active !== undefined) {
-    query.set("is_active", String(filters.is_active));
-  }
-  const suffix = query.toString() ? `${SAVINGS_GOALS_PATH}?${query.toString()}` : SAVINGS_GOALS_PATH;
-  return request(suffix);
+  return request(buildUrl(PATHS.savingsGoals, filters));
 }
 
 export function createSavingsGoal(payload) {
-  return request(SAVINGS_GOALS_PATH, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request(PATHS.savingsGoals, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function updateSavingsGoal(id, payload) {
-  return request(`${SAVINGS_GOALS_PATH}${id}/`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  return request(`${PATHS.savingsGoals}${id}/`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export function deleteSavingsGoal(id) {
-  return request(`${SAVINGS_GOALS_PATH}${id}/`, {
-    method: "DELETE",
-  });
+  return request(`${PATHS.savingsGoals}${id}/`, { method: "DELETE" });
 }
 
 export function contributeToGoal(id, amount) {
-  return request(`${SAVINGS_GOALS_PATH}${id}/contribute/`, {
-    method: "POST",
-    body: JSON.stringify({ amount }),
-  });
+  return request(`${PATHS.savingsGoals}${id}/contribute/`, { method: "POST", body: JSON.stringify({ amount }) });
 }
 
 export function getHouseholdInsights(dateFrom, dateTo, filters = {}) {
-  const query = new URLSearchParams();
-
-  if (dateFrom) {
-    query.set("from", String(dateFrom));
-  }
-  if (dateTo) {
-    query.set("to", String(dateTo));
-  }
-  if (filters.category) {
-    query.set("category", String(filters.category));
-  }
-  if (filters.area) {
-    query.set("area", String(filters.area));
-  }
-  if (filters.priority) {
-    query.set("priority", String(filters.priority));
-  }
-
-  const suffix = query.toString() ? `household-insights/?${query.toString()}` : "household-insights/";
-  return request(suffix);
+  return request(buildUrl(PATHS.householdInsights, { from: dateFrom, to: dateTo, ...filters }));
 }

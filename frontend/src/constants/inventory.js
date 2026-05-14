@@ -96,6 +96,9 @@ export const DEFAULT_INVENTORY_SETTINGS = {
   ],
 };
 
+// Fallback singleton for utility functions called outside React (e.g. form defaults
+// before the first settings load). Kept in sync by AppContext via setCurrentInventorySettings.
+// Prefer useInventorySettings() inside components instead of calling getCurrentInventorySettings().
 let currentInventorySettings = DEFAULT_INVENTORY_SETTINGS;
 
 export function normalizeInventorySettings(payload) {

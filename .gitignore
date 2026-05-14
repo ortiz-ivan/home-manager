@@ -1,8 +1,106 @@
-venv
+# =========================
+# ENTORNO VIRTUAL
+# =========================
+venv/
+.env/
+.venv/
+
+# =========================
+# VARIABLES DE ENTORNO
+# =========================
 .env
+.env.*
+*.env
 
-__pycache__
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
 
+# Archivos compilados
+*.so
+
+# Distribución / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# =========================
+# BASES DE DATOS
+# =========================
 db.sqlite3
+*.sqlite3
 
+# =========================
+# LOGS
+# =========================
+*.log
+
+# =========================
+# CACHE / TESTS
+# =========================
+.pytest_cache/
+.mypy_cache/
+.cache/
+coverage/
+htmlcov/
+.tox/
+.nox/
+
+# =========================
+# JUPYTER
+# =========================
+.ipynb_checkpoints
+
+# =========================
+# IDEs / EDITORES
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# SISTEMA OPERATIVO
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# DOCUMENTACIÓN LOCAL
+# =========================
 documentacion.md
+deuda_tecnica.md
+mejoras_recomendadas.md
+
+# =========================
+# DJANGO
+# =========================
+media/
+staticfiles/
+
+# Migraciones
+*/migrations/*.py
+!*/migrations/__init__.py
+
+# =========================
+# JAVASCRIPT / NODE
+# =========================
+node_modules/
+
+# =========================
+# CLAUDE CODE
+# =========================
+.claude/settings.local.json

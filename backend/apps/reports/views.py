@@ -42,6 +42,7 @@ class MonthlyFinanceSummaryView(APIView):
 
 class FinancialEventListView(APIView):
     serializer_class = FinancialEventSerializer
+    pagination_class = None
 
     def get(self, request):
         try:
@@ -57,6 +58,7 @@ class FinancialEventListView(APIView):
 
 class MonthlyCloseView(APIView):
     serializer_class = MonthlyCloseSerializer
+    pagination_class = None
 
     def get(self, request):
         closes = MonthlyClose.objects.all()

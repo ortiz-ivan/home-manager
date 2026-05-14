@@ -35,7 +35,7 @@ class Product(models.Model):
     stock = models.DecimalField(max_digits=12, decimal_places=3, default=0)
     stock_min = models.DecimalField(max_digits=12, decimal_places=3, default=1)
     unit = models.CharField(max_length=40, default="unidad")
-    price = models.FloatField(null=True, blank=True)
+    price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     usage_frequency = models.CharField(max_length=10, choices=USAGE_FREQUENCY_CHOICES, default="medium")
     last_purchase = models.DateField(null=True, blank=True)
     next_due_date = models.DateField(null=True, blank=True)
@@ -45,6 +45,7 @@ class Product(models.Model):
 
     class Meta:
         db_table = "inventory_product"
+        ordering = ["name", "id"]
 
     @classmethod
     def get_type_for_category(cls, category: str) -> str:
