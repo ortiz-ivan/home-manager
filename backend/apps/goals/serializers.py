@@ -9,6 +9,8 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
     remaining = serializers.SerializerMethodField()
     days_left = serializers.SerializerMethodField()
     is_completed = serializers.SerializerMethodField()
+    daily_required = serializers.SerializerMethodField()
+    monthly_required = serializers.SerializerMethodField()
 
     class Meta:
         model = SavingsGoal
@@ -25,6 +27,8 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
             "remaining",
             "days_left",
             "is_completed",
+            "daily_required",
+            "monthly_required",
             "created_at",
             "updated_at",
         ]
@@ -51,3 +55,9 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
 
     def get_is_completed(self, obj):
         return get_goal_progress(obj)["is_completed"]
+
+    def get_daily_required(self, obj):
+        return get_goal_progress(obj)["daily_required"]
+
+    def get_monthly_required(self, obj):
+        return get_goal_progress(obj)["monthly_required"]

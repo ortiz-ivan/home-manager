@@ -65,11 +65,18 @@ export function GoalCard({ goal, onContribute, onEdit, onDelete, isActing }) {
       )}
 
       {goal.target_date && (
-        <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 8px" }}>
+        <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 4px" }}>
           Fecha objetivo: {goal.target_date}
           {goal.days_left !== null && (
             <span> ({goal.days_left >= 0 ? `${goal.days_left} dias restantes` : `vencida hace ${Math.abs(goal.days_left)} dias`})</span>
           )}
+        </p>
+      )}
+
+      {goal.daily_required != null && (
+        <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "0 0 8px" }}>
+          Para llegar a tiempo: <strong>{formatCurrency(goal.daily_required)}/día</strong>{" "}
+          o <strong>{formatCurrency(goal.monthly_required)}/mes</strong>
         </p>
       )}
 
