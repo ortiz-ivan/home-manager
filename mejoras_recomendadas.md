@@ -1,4 +1,4 @@
-Lo que falta para que sea un buen software de gestión de hogares
+# Lo que falta para que sea un buen software de gestión de hogares
 
 Falta ampliar el alcance funcional del hogar. Hoy cubres inventario y dinero, pero un hogar también necesita planificación operativa. Te faltan al menos estas capacidades:
 
@@ -17,7 +17,6 @@ Falta detectar anomalías: gasto inusual, categoría disparada, producto que se 
 Falta presupuesto por categoría con seguimiento del mes en curso, no solo lectura agregada.
 Falta diferenciar gasto comprometido, gasto pagado y gasto proyectado.
 Falta robustez de producto. Ese es el mayor cuello de botella real hoy.
-
 
 No hay configuración global de DRF para paginación, filtros o versionado en settings.py.
 Las vistas son funcionales, pero siguen siendo bastante directas y planas en views.py, views.py y views.py.
