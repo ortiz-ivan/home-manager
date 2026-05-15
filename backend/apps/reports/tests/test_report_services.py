@@ -8,6 +8,7 @@ from apps.expenses.models import FixedExpense, FixedExpensePayment, Income, Vari
 from apps.purchases.models import Product, ProductRestock
 from apps.reports.models import FinancialEvent, MonthlyClose
 from apps.reports.services import (
+    _compute_category_breakdown,
     _compute_monthly_projection,
     calculate_monthly_finance_summary,
     create_monthly_close,
@@ -291,3 +292,197 @@ class TestComputeMonthlyProjection:
         assert proj["actual_spend_so_far"] == 0.0
         assert proj["daily_rate"] == 0.0
         assert proj["projected_month_end"] == 0.0
+
+    def test_projection_ignora_variables_comprometidas_en_daily_rate(self, db):
+        # Variable paid: aporta al daily_rate
+        VariableExpense.objects.create(
+            amount=Decimal("150"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        # Variable committed: NO debe aportar al daily_rate
+        VariableExpense.objects.create(
+            amount=Decimal("500"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 10), status=VariableExpense.STATUS_COMMITTED,
+        )
+        proj = _compute_monthly_projection(MONTH, YEAR, Decimal("2000"), today=self.TODAY)
+        # actual_spend_so_far solo debe incluir 150 (paid), no 650
+        assert proj["actual_spend_so_far"] == pytest.approx(150.0)
+        expected_rate = 150.0 / self.TODAY.day
+        assert proj["daily_rate"] == pytest.approx(expected_rate, abs=0.01)
+
+
+# ---------------------------------------------------------------------------
+# calculate_monthly_finance_summary — breakdown paid/committed
+# ---------------------------------------------------------------------------
+
+class TestCalculateMonthlyFinanceSummaryPaidCommitted:
+    def test_nuevos_campos_presentes_en_summary(self, db):
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        for key in ("paid_expenses", "committed_expenses", "committed_fixed_expenses",
+                    "paid_variable_expenses", "committed_variable_expenses"):
+            assert key in summary, f"Falta el campo '{key}' en el summary"
+
+    def test_paid_expenses_incluye_pagos_fijos_y_variables_pagados(self, db):
+        expense = FixedExpense.objects.create(
+            name="Alquiler", category="home", budget_bucket="needs",
+            monthly_amount=Decimal("400"), is_active=True,
+        )
+        FixedExpensePayment.objects.create(
+            fixed_expense=expense, date=date(YEAR, MONTH, 1), amount=Decimal("400"),
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("200"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["paid_expenses"] == pytest.approx(600.0)
+
+    def test_committed_fixed_son_activos_sin_pago_en_el_mes(self, db):
+        FixedExpense.objects.create(
+            name="Internet", category="services", budget_bucket="needs",
+            monthly_amount=Decimal("80"), is_active=True,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["committed_fixed_expenses"] == pytest.approx(80.0)
+        assert summary["committed_expenses"] == pytest.approx(80.0)
+
+    def test_committed_fixed_excluye_activos_ya_pagados(self, db):
+        expense = FixedExpense.objects.create(
+            name="Alquiler", category="home", budget_bucket="needs",
+            monthly_amount=Decimal("400"), is_active=True,
+        )
+        FixedExpensePayment.objects.create(
+            fixed_expense=expense, date=date(YEAR, MONTH, 1), amount=Decimal("400"),
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["committed_fixed_expenses"] == 0.0
+
+    def test_committed_fixed_excluye_inactivos(self, db):
+        FixedExpense.objects.create(
+            name="Inactivo", category="home", budget_bucket="needs",
+            monthly_amount=Decimal("200"), is_active=False,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["committed_fixed_expenses"] == 0.0
+
+    def test_paid_variable_expenses_solo_status_paid(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("100"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("300"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 10), status=VariableExpense.STATUS_COMMITTED,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["paid_variable_expenses"] == pytest.approx(100.0)
+
+    def test_committed_variable_expenses_solo_status_committed(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("100"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("300"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 10), status=VariableExpense.STATUS_COMMITTED,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["committed_variable_expenses"] == pytest.approx(300.0)
+
+    def test_variable_expenses_total_incluye_paid_y_committed(self, db):
+        VariableExpense.objects.create(
+            amount=Decimal("100"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("300"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 10), status=VariableExpense.STATUS_COMMITTED,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["variable_expenses"] == pytest.approx(400.0)
+
+    def test_committed_expenses_suma_committed_fijo_y_variable(self, db):
+        FixedExpense.objects.create(
+            name="Internet", category="services", budget_bucket="needs",
+            monthly_amount=Decimal("80"), is_active=True,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("150"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_COMMITTED,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["committed_expenses"] == pytest.approx(230.0)
+
+    def test_paid_y_committed_no_se_solapan(self, db):
+        expense = FixedExpense.objects.create(
+            name="Alquiler", category="home", budget_bucket="needs",
+            monthly_amount=Decimal("400"), is_active=True,
+        )
+        FixedExpensePayment.objects.create(
+            fixed_expense=expense, date=date(YEAR, MONTH, 1), amount=Decimal("400"),
+        )
+        FixedExpense.objects.create(
+            name="Internet", category="services", budget_bucket="needs",
+            monthly_amount=Decimal("80"), is_active=True,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("200"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("100"), category="leisure", budget_bucket="wants",
+            date=date(YEAR, MONTH, 8), status=VariableExpense.STATUS_COMMITTED,
+        )
+        summary = calculate_monthly_finance_summary(MONTH, YEAR)
+        assert summary["paid_expenses"] == pytest.approx(600.0)    # 400 fixed + 200 paid var
+        assert summary["committed_expenses"] == pytest.approx(180.0)  # 80 internet + 100 committed var
+
+
+# ---------------------------------------------------------------------------
+# _compute_category_breakdown — committed_variable_total
+# ---------------------------------------------------------------------------
+
+class TestComputeCategoryBreakdown:
+    def test_variable_paid_va_a_variable_expense_total(self, db, settings_singleton):
+        VariableExpense.objects.create(
+            amount=Decimal("200"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_singleton.get_config())
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        assert food is not None
+        assert food["variable_expense_total"] == pytest.approx(200.0)
+        assert food["committed_variable_total"] == pytest.approx(0.0)
+
+    def test_variable_committed_va_a_committed_variable_total(self, db, settings_singleton):
+        VariableExpense.objects.create(
+            amount=Decimal("150"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 10), status=VariableExpense.STATUS_COMMITTED,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_singleton.get_config())
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        assert food is not None
+        assert food["committed_variable_total"] == pytest.approx(150.0)
+        assert food["variable_expense_total"] == pytest.approx(0.0)
+
+    def test_actual_incluye_paid_y_committed(self, db, settings_singleton):
+        VariableExpense.objects.create(
+            amount=Decimal("100"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("200"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 10), status=VariableExpense.STATUS_COMMITTED,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_singleton.get_config())
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        assert food["actual"] == pytest.approx(300.0)
+
+    def test_campo_committed_variable_total_presente_en_estructura(self, db, settings_singleton):
+        VariableExpense.objects.create(
+            amount=Decimal("50"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5),
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_singleton.get_config())
+        assert len(breakdown) > 0
+        assert "committed_variable_total" in breakdown[0]

@@ -87,6 +87,18 @@ function VariableExpenseFormFields({ formData, onChange, submitLabel, requireCha
       </label>
 
       <label>
+        Estado
+        <select
+          name="status"
+          value={formData.status}
+          onChange={onChange}
+        >
+          <option value="paid">Pagado</option>
+          <option value="committed">Comprometido (por pagar)</option>
+        </select>
+      </label>
+
+      <label>
         Motivo del cambio
         <input
           name="change_reason"

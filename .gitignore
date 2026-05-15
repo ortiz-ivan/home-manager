@@ -104,3 +104,5 @@ node_modules/
 # CLAUDE CODE
 # =========================
 .claude/settings.local.json
+
+docs

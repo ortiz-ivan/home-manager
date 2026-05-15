@@ -1959,6 +1959,12 @@ select:focus {
   border-color: var(--warning);
 }
 
+.status-chip.committed {
+  color: var(--info, #3b82f6);
+  background: var(--info-dim, #eff6ff);
+  border-color: var(--info, #3b82f6);
+}
+
 .message {
   margin-top: 8px;
   font-size: 0.9rem;

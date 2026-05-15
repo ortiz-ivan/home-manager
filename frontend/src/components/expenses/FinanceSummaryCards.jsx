@@ -10,10 +10,18 @@ export function FinanceSummaryCards({ summary }) {
       </article>
 
       <article className="kpi-card">
-        <p>Gasto mensual total</p>
-        <h3>{formatGuarani(summary.estimated_expenses)}</h3>
+        <p>Pagado este mes</p>
+        <h3>{formatGuarani(summary.paid_expenses ?? summary.fixed_estimated_expenses ?? 0)}</h3>
         <small>
-          Hogar: {formatGuarani(summary.home_estimated_expenses || 0)} | Fijos pagados: {formatGuarani(summary.fixed_estimated_expenses || 0)} | Variables del mes: {formatGuarani(summary.variable_expenses || 0)}
+          Fijos: {formatGuarani(summary.fixed_estimated_expenses || 0)} | Variables: {formatGuarani(summary.paid_variable_expenses || 0)}
+        </small>
+      </article>
+
+      <article className="kpi-card">
+        <p>Comprometido (por pagar)</p>
+        <h3>{formatGuarani(summary.committed_expenses ?? 0)}</h3>
+        <small>
+          Fijos pendientes: {formatGuarani(summary.committed_fixed_expenses || 0)} | Variables: {formatGuarani(summary.committed_variable_expenses || 0)}
         </small>
       </article>
 

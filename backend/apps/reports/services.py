@@ -217,6 +217,7 @@ def _compute_category_breakdown(month: int, year: int, settings_data: dict) -> l
                 "budget_bucket": cfg.get("budget_bucket", "needs"),
                 "actual": Decimal("0"),
                 "variable_expense_total": Decimal("0"),
+                "committed_variable_total": Decimal("0"),
                 "fixed_payment_total": Decimal("0"),
                 "product_restock_total": Decimal("0"),
             }
@@ -225,7 +226,10 @@ def _compute_category_breakdown(month: int, year: int, settings_data: dict) -> l
     for expense in VariableExpense.objects.filter(date__year=year, date__month=month):
         entry = get_or_create(expense.category or "other")
         amount = _to_decimal(expense.amount)
-        entry["variable_expense_total"] += amount
+        if expense.status == VariableExpense.STATUS_COMMITTED:
+            entry["committed_variable_total"] += amount
+        else:
+            entry["variable_expense_total"] += amount
         entry["actual"] += amount
 
     for payment in FixedExpensePayment.objects.filter(
@@ -255,6 +259,7 @@ def _compute_category_breakdown(month: int, year: int, settings_data: dict) -> l
             "budget_bucket": e["budget_bucket"],
             "actual": float(round(e["actual"], 2)),
             "variable_expense_total": float(round(e["variable_expense_total"], 2)),
+            "committed_variable_total": float(round(e["committed_variable_total"], 2)),
             "fixed_payment_total": float(round(e["fixed_payment_total"], 2)),
             "product_restock_total": float(round(e["product_restock_total"], 2)),
         }
@@ -270,7 +275,7 @@ def _compute_monthly_projection(month: int, year: int, total_income: Decimal, to
     days_elapsed = today.day if is_current_month else days_total
 
     var_total = _to_decimal(
-        VariableExpense.objects.filter(date__year=year, date__month=month)
+        VariableExpense.objects.filter(date__year=year, date__month=month, status=VariableExpense.STATUS_PAID)
         .aggregate(s=Sum("amount"))["s"]
     )
     fixed_total = _to_decimal(
@@ -358,21 +363,38 @@ def calculate_monthly_finance_summary(month: int, year: int):
         date__month=month,
     ).select_related("fixed_expense")
 
+    paid_fixed_ids = set()
     for payment in fixed_payments:
         fixed_amount = _to_decimal(payment.amount)
         expense = payment.fixed_expense
         budget_bucket = expense.budget_bucket or FixedExpense.get_budget_bucket_for_category(expense.category)
         fixed_estimated_expenses += fixed_amount
         budget_actuals[budget_bucket] += fixed_amount
+        paid_fixed_ids.add(expense.id)
 
-    variable_month_expenses = Decimal("0")
+    committed_fixed_expenses = Decimal("0")
+    for fe in FixedExpense.objects.filter(is_active=True).exclude(id__in=paid_fixed_ids):
+        amount = _to_decimal(fe.monthly_amount)
+        bucket = fe.budget_bucket or FixedExpense.get_budget_bucket_for_category(fe.category)
+        committed_fixed_expenses += amount
+        budget_actuals[bucket] += amount
+
+    paid_variable_expenses = Decimal("0")
+    committed_variable_expenses = Decimal("0")
     variable_expenses = VariableExpense.objects.filter(date__year=year, date__month=month)
 
     for expense in variable_expenses:
         amount = _to_decimal(expense.amount)
         budget_bucket = expense.budget_bucket or VariableExpense.get_budget_bucket_for_category(expense.category)
-        variable_month_expenses += amount
+        if expense.status == VariableExpense.STATUS_COMMITTED:
+            committed_variable_expenses += amount
+        else:
+            paid_variable_expenses += amount
         budget_actuals[budget_bucket] += amount
+
+    variable_month_expenses = paid_variable_expenses + committed_variable_expenses
+    paid_expenses = fixed_estimated_expenses + paid_variable_expenses
+    committed_expenses = committed_fixed_expenses + committed_variable_expenses
 
     estimated_expenses = home_estimated_expenses + fixed_estimated_expenses + variable_month_expenses
 
@@ -412,6 +434,11 @@ def calculate_monthly_finance_summary(month: int, year: int):
         "home_estimated_expenses": float(round(home_estimated_expenses, 2)),
         "fixed_estimated_expenses": float(round(fixed_estimated_expenses, 2)),
         "variable_expenses": float(round(variable_month_expenses, 2)),
+        "paid_expenses": float(round(paid_expenses, 2)),
+        "committed_expenses": float(round(committed_expenses, 2)),
+        "committed_fixed_expenses": float(round(committed_fixed_expenses, 2)),
+        "paid_variable_expenses": float(round(paid_variable_expenses, 2)),
+        "committed_variable_expenses": float(round(committed_variable_expenses, 2)),
         "estimated_expenses": float(round(estimated_expenses, 2)),
         "expense_percentage": float(round(expense_percentage, 2)) if expense_percentage is not None else None,
         "remaining_balance": float(round(total_income - estimated_expenses, 2)),

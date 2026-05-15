@@ -254,6 +254,7 @@ function useVariableExpenseController(activePeriodInputDate, onDataChanged) {
       budget_bucket: expense.budget_bucket || getBudgetBucketForCategory(expense.category),
       description: expense.description || "",
       notes: expense.notes || "",
+      status: expense.status || "paid",
       change_reason: "",
       date: expense.date,
     });

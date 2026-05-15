@@ -46,6 +46,13 @@ class Income(models.Model):
 
 
 class VariableExpense(models.Model):
+    STATUS_PAID = "paid"
+    STATUS_COMMITTED = "committed"
+    STATUS_CHOICES = [
+        (STATUS_PAID, "Pagado"),
+        (STATUS_COMMITTED, "Comprometido"),
+    ]
+
     BUDGET_BUCKET_CHOICES = Product.BUDGET_BUCKET_CHOICES
 
     amount = models.DecimalField(max_digits=12, decimal_places=2)
@@ -53,6 +60,7 @@ class VariableExpense(models.Model):
     budget_bucket = models.CharField(max_length=20, choices=BUDGET_BUCKET_CHOICES, default="needs")
     description = models.CharField(max_length=120, blank=True)
     notes = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PAID)
     date = models.DateField(default=timezone.localdate)
     created_at = models.DateTimeField(auto_now_add=True)
 

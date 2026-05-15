@@ -1,6 +1,11 @@
 import { getBudgetBucketLabels, getCategoryLabel } from "../../constants/inventory.js";
 import { formatGuarani } from "./utils.js";
 
+const STATUS_LABELS = {
+  paid: "Pagado",
+  committed: "Comprometido",
+};
+
 export function VariableExpensesSection({ variableExpenses, onEdit, onDelete }) {
   const budgetBucketLabels = getBudgetBucketLabels();
 
@@ -23,6 +28,9 @@ export function VariableExpensesSection({ variableExpenses, onEdit, onDelete }) 
                 <small>{expense.date} {expense.description ? `| ${expense.description}` : ""}</small>
               </div>
               <div className="row-actions">
+                <span className={`status-chip ${expense.status === "committed" ? "committed" : "paid"}`}>
+                  {STATUS_LABELS[expense.status] || expense.status}
+                </span>
                 <button className="btn btn-secondary" type="button" onClick={() => onEdit(expense)}>
                   Editar
                 </button>

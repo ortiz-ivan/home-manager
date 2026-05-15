@@ -102,6 +102,30 @@ class TestVariableExpenseView:
         assert response.status_code == 201
         assert response.data["category"] == "mobility"
 
+    def test_status_por_defecto_es_paid(self, api, db):
+        payload = {"amount": "150", "category": "mobility"}
+        response = api.post(VAR_BASE, payload, format="json")
+        assert response.status_code == 201
+        assert response.data["status"] == "paid"
+
+    def test_crea_gasto_variable_con_status_committed(self, api, db):
+        payload = {"amount": "200", "category": "mobility", "status": "committed"}
+        response = api.post(VAR_BASE, payload, format="json")
+        assert response.status_code == 201
+        assert response.data["status"] == "committed"
+        expense = VariableExpense.objects.get(pk=response.data["id"])
+        assert expense.status == VariableExpense.STATUS_COMMITTED
+
+    def test_actualiza_status_a_committed(self, api, variable_expense):
+        response = api.patch(
+            f"{VAR_BASE}{variable_expense.pk}/",
+            {"status": "committed", "change_reason": "pre-registro"},
+            format="json",
+        )
+        assert response.status_code == 200
+        variable_expense.refresh_from_db()
+        assert variable_expense.status == "committed"
+
     def test_categoria_invalida_retorna_400(self, api, db):
         payload = {"amount": "100", "category": "categoria_inventada"}
         response = api.post(VAR_BASE, payload, format="json")
@@ -167,4 +191,53 @@ class TestFixedExpenseView:
             {"change_reason": "p2"},
             format="json",
         )
+        assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Validaciones de categorías y buckets
+# ---------------------------------------------------------------------------
+
+class TestCategoryAndBucketValidation:
+    def test_gasto_variable_categoria_invalida_retorna_400(self, api, db):
+        response = api.post(VAR_BASE, {"amount": "100", "category": "inexistente"}, format="json")
+        assert response.status_code == 400
+
+    def test_gasto_variable_categoria_de_scope_incorrecto_retorna_400(self, api, db):
+        # "home" es categoría de fixed_expense, no de variable_expense
+        response = api.post(VAR_BASE, {"amount": "100", "category": "home"}, format="json")
+        assert response.status_code == 400
+
+    def test_gasto_fijo_categoria_invalida_retorna_400(self, api, db):
+        payload = {"name": "Test", "category": "inexistente", "monthly_amount": "100"}
+        response = api.post(FIXED_BASE, payload, format="json")
+        assert response.status_code == 400
+
+    def test_gasto_variable_infiere_budget_bucket_de_categoria(self, api, db):
+        # leisure → wants (según configuración por defecto)
+        response = api.post(
+            VAR_BASE, {"amount": "100", "category": "leisure"}, format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["budget_bucket"] in ("needs", "wants", "savings")
+
+    def test_gasto_fijo_infiere_budget_bucket_de_categoria(self, api, db):
+        response = api.post(
+            FIXED_BASE,
+            {"name": "Internet", "category": "services", "monthly_amount": "80"},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["budget_bucket"] in ("needs", "wants", "savings")
+
+    def test_income_monto_obligatorio_retorna_400(self, api, db):
+        response = api.post(INCOMES_BASE, {"source": "Trabajo"}, format="json")
+        assert response.status_code == 400
+
+    def test_gasto_variable_monto_obligatorio_retorna_400(self, api, db):
+        response = api.post(VAR_BASE, {"category": "mobility"}, format="json")
+        assert response.status_code == 400
+
+    def test_gasto_fijo_monto_obligatorio_retorna_400(self, api, db):
+        response = api.post(FIXED_BASE, {"name": "Test", "category": "services"}, format="json")
         assert response.status_code == 400

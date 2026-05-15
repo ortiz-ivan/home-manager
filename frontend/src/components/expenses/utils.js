@@ -34,6 +34,7 @@ export function createVariableExpenseFormState() {
     budget_bucket: getBudgetBucketForCategory(firstCategory),
     description: "",
     notes: "",
+    status: "paid",
     change_reason: "",
     date: toInputDate(new Date()),
   };
