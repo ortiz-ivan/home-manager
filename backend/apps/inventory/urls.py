@@ -11,4 +11,5 @@ urlpatterns = [
     path("", include("apps.household.urls")),
     path("", include("apps.goals.urls")),
     path("", include("apps.configuration.urls")),
+    path("assistant/", include("apps.assistant.urls")),
 ]
