@@ -1,4 +1,4 @@
-# Home Manager
+# DomusOps
 
 Sistema personal de gestión del hogar: finanzas, inventario, tareas domésticas y metas de ahorro.
 
@@ -20,7 +20,7 @@ Sistema personal de gestión del hogar: finanzas, inventario, tareas domésticas
 
 ## Descripción
 
-Home Manager centraliza la administración del hogar en una sola aplicación: controla ingresos, gastos fijos y variables, gestiona el inventario de productos, planifica compras, lleva el seguimiento de tareas recurrentes del hogar y monitorea el avance hacia metas financieras.
+DomusOps centraliza la administración del hogar en una sola aplicación: controla ingresos, gastos fijos y variables, gestiona el inventario de productos, planifica compras, lleva el seguimiento de tareas recurrentes del hogar y monitorea el avance hacia metas financieras.
 
 Incluye análisis automático: proyecciones de gasto mensual, detección de anomalías financieras y alertas tempranas cuando el ritmo de gasto supera el ingreso disponible.
 
@@ -130,7 +130,7 @@ home-manager/
 
 ```bash
 git clone <url-del-repositorio>
-cd home-manager
+cd domusops
 ```
 
 ### 2. Backend
