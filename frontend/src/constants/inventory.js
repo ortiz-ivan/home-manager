@@ -25,16 +25,16 @@ const EXACT_QUANTITY_UNITS = new Set(["kg", "g", "l", "ml"]);
 
 export const DEFAULT_INVENTORY_SETTINGS = {
   categories: [
-    { value: "food", label: "Alimentos", scope: "inventory", type: "consumable", budget_bucket: "needs", fallback_unit_cost: 4.8 },
-    { value: "cleaning", label: "Limpieza", scope: "inventory", type: "consumable", budget_bucket: "needs", fallback_unit_cost: 6.2 },
-    { value: "hygiene", label: "Higiene", scope: "inventory", type: "consumable", budget_bucket: "needs", fallback_unit_cost: 5.1 },
-    { value: "assets", label: "Activos", scope: "inventory", type: "asset", budget_bucket: "needs", fallback_unit_cost: 11.6 },
-    { value: "home", label: "Hogar", scope: "fixed_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 7.4 },
-    { value: "services", label: "Servicios", scope: "fixed_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 12 },
-    { value: "subscription", label: "Suscripciones", scope: "fixed_expense", type: "subscription", budget_bucket: "wants", fallback_unit_cost: 9.5 },
-    { value: "mobility", label: "Movilidad", scope: "variable_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 8.1 },
-    { value: "maintenance", label: "Mantenimiento", scope: "variable_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 10.5 },
-    { value: "leisure", label: "Ocio", scope: "variable_expense", type: "service", budget_bucket: "wants", fallback_unit_cost: 7.9 },
+    { value: "food", label: "Alimentos", scope: "inventory", type: "consumable", budget_bucket: "needs", fallback_unit_cost: 4.8, monthly_budget: null },
+    { value: "cleaning", label: "Limpieza", scope: "inventory", type: "consumable", budget_bucket: "needs", fallback_unit_cost: 6.2, monthly_budget: null },
+    { value: "hygiene", label: "Higiene", scope: "inventory", type: "consumable", budget_bucket: "needs", fallback_unit_cost: 5.1, monthly_budget: null },
+    { value: "assets", label: "Activos", scope: "inventory", type: "asset", budget_bucket: "needs", fallback_unit_cost: 11.6, monthly_budget: null },
+    { value: "home", label: "Hogar", scope: "fixed_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 7.4, monthly_budget: null },
+    { value: "services", label: "Servicios", scope: "fixed_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 12, monthly_budget: null },
+    { value: "subscription", label: "Suscripciones", scope: "fixed_expense", type: "subscription", budget_bucket: "wants", fallback_unit_cost: 9.5, monthly_budget: null },
+    { value: "mobility", label: "Movilidad", scope: "variable_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 8.1, monthly_budget: null },
+    { value: "maintenance", label: "Mantenimiento", scope: "variable_expense", type: "service", budget_bucket: "needs", fallback_unit_cost: 10.5, monthly_budget: null },
+    { value: "leisure", label: "Ocio", scope: "variable_expense", type: "service", budget_bucket: "wants", fallback_unit_cost: 7.9, monthly_budget: null },
   ],
   units: [
     { value: "unidad", label: "Unidad" },

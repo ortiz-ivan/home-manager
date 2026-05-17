@@ -54,6 +54,7 @@ class InventoryCategorySettingsSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=["consumable", "service", "subscription", "asset"])
     budget_bucket = serializers.CharField(max_length=20)
     fallback_unit_cost = serializers.FloatField(min_value=0)
+    monthly_budget = serializers.FloatField(min_value=0, allow_null=True, required=False)
 
 
 class InventoryUnitSettingsSerializer(serializers.Serializer):

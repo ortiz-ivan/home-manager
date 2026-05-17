@@ -10,6 +10,7 @@ from apps.configuration.models import (
     InventorySettings,
     get_budget_bucket_ratio_map,
     get_category_fallback_unit_cost,
+    get_category_monthly_budget,
 )
 from apps.expenses.models import FixedExpense, FixedExpensePayment, Income, VariableExpense
 from apps.purchases.models import Product, ProductRestock
@@ -215,6 +216,7 @@ def _compute_category_breakdown(month: int, year: int, settings_data: dict) -> l
                 "category": category,
                 "label": cfg.get("label", category),
                 "budget_bucket": cfg.get("budget_bucket", "needs"),
+                "budget": get_category_monthly_budget(settings_data, category),
                 "actual": Decimal("0"),
                 "variable_expense_total": Decimal("0"),
                 "committed_variable_total": Decimal("0"),
@@ -252,19 +254,23 @@ def _compute_category_breakdown(month: int, year: int, settings_data: dict) -> l
         entry["product_restock_total"] += amount
         entry["actual"] += amount
 
-    result = [
-        {
+    result = []
+    for e in breakdown.values():
+        actual = float(round(e["actual"], 2))
+        budget = e["budget"]
+        remaining = round(budget - actual, 2) if budget is not None else None
+        result.append({
             "category": e["category"],
             "label": e["label"],
             "budget_bucket": e["budget_bucket"],
-            "actual": float(round(e["actual"], 2)),
+            "budget": budget,
+            "actual": actual,
+            "remaining": remaining,
             "variable_expense_total": float(round(e["variable_expense_total"], 2)),
             "committed_variable_total": float(round(e["committed_variable_total"], 2)),
             "fixed_payment_total": float(round(e["fixed_payment_total"], 2)),
             "product_restock_total": float(round(e["product_restock_total"], 2)),
-        }
-        for e in breakdown.values()
-    ]
+        })
     return sorted(result, key=lambda x: x["actual"], reverse=True)
 
 

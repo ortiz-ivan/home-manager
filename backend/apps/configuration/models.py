@@ -12,6 +12,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "consumable",
             "budget_bucket": "needs",
             "fallback_unit_cost": 4.8,
+            "monthly_budget": None,
         },
         {
             "value": "cleaning",
@@ -20,6 +21,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "consumable",
             "budget_bucket": "needs",
             "fallback_unit_cost": 6.2,
+            "monthly_budget": None,
         },
         {
             "value": "hygiene",
@@ -28,6 +30,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "consumable",
             "budget_bucket": "needs",
             "fallback_unit_cost": 5.1,
+            "monthly_budget": None,
         },
         {
             "value": "assets",
@@ -36,6 +39,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "asset",
             "budget_bucket": "needs",
             "fallback_unit_cost": 11.6,
+            "monthly_budget": None,
         },
         {
             "value": "home",
@@ -44,6 +48,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "service",
             "budget_bucket": "needs",
             "fallback_unit_cost": 7.4,
+            "monthly_budget": None,
         },
         {
             "value": "services",
@@ -52,6 +57,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "service",
             "budget_bucket": "needs",
             "fallback_unit_cost": 12,
+            "monthly_budget": None,
         },
         {
             "value": "subscription",
@@ -60,6 +66,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "subscription",
             "budget_bucket": "wants",
             "fallback_unit_cost": 9.5,
+            "monthly_budget": None,
         },
         {
             "value": "mobility",
@@ -68,6 +75,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "service",
             "budget_bucket": "needs",
             "fallback_unit_cost": 8.1,
+            "monthly_budget": None,
         },
         {
             "value": "maintenance",
@@ -76,6 +84,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "service",
             "budget_bucket": "needs",
             "fallback_unit_cost": 10.5,
+            "monthly_budget": None,
         },
         {
             "value": "leisure",
@@ -84,6 +93,7 @@ DEFAULT_INVENTORY_SETTINGS = {
             "type": "service",
             "budget_bucket": "wants",
             "fallback_unit_cost": 7.9,
+            "monthly_budget": None,
         },
     ],
     "units": [
@@ -199,6 +209,18 @@ def get_category_fallback_unit_cost(settings_data, category, fallback=4):
     category_settings = get_category_settings(settings_data, category)
     value = (category_settings or {}).get("fallback_unit_cost")
     return float(value if value is not None else fallback)
+
+
+def get_category_monthly_budget(settings_data, category):
+    category_settings = get_category_settings(settings_data, category)
+    value = (category_settings or {}).get("monthly_budget")
+    if value is None:
+        return None
+    try:
+        v = float(value)
+        return v if v > 0 else None
+    except (TypeError, ValueError):
+        return None
 
 
 def get_budget_bucket_ratio_map(settings_data):

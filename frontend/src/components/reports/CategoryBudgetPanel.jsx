@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useAppContext } from "../../context/AppContext.jsx";
 import { formatCompactGuarani } from "./utils.js";
 
 const BUCKETS = [
@@ -7,15 +9,46 @@ const BUCKETS = [
 ];
 
 export function CategoryBudgetPanel({ summary }) {
+  const { inventorySettings, saveSettings } = useAppContext();
+  const [editing, setEditing] = useState(null); // { category, value }
+  const [saving, setSaving] = useState(false);
+
   const breakdown = summary.category_breakdown ?? [];
   const targets = summary.rule_50_30_20?.targets ?? {};
+
+  function startEdit(cat) {
+    setEditing({ category: cat.category, value: cat.budget != null ? String(cat.budget) : "" });
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      const raw = editing.value.trim();
+      const newBudget = raw === "" ? null : parseFloat(raw);
+      const updatedCategories = (inventorySettings.categories ?? []).map((cat) =>
+        cat.value === editing.category
+          ? { ...cat, monthly_budget: newBudget && newBudget > 0 ? newBudget : null }
+          : cat
+      );
+      await saveSettings({ ...inventorySettings, categories: updatedCategories });
+      setEditing(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter") handleSave();
+    if (e.key === "Escape") setEditing(null);
+  }
 
   return (
     <article className="panel reports-panel reports-panel-wide">
       <div className="panel-title">
         <div>
-          <h3>Gasto real por categoría</h3>
-          <p>Gastos variables, pagos fijos y reposiciones del mes agrupados por bucket presupuestario.</p>
+          <h3>Presupuesto por categoría</h3>
+          <p>Gasto real vs. límite mensual. Haz clic en el monto presupuestado para editarlo.</p>
         </div>
       </div>
 
@@ -26,7 +59,7 @@ export function CategoryBudgetPanel({ summary }) {
           const bucketTarget = Number(targets[bucket.key] ?? 0);
           const isOver = bucketActual > bucketTarget && bucketTarget > 0;
           const statusClass = bucketTarget === 0 ? "neutral" : isOver ? "danger" : "success";
-          const maxAmount = Math.max(...categories.map((c) => c.actual), 1);
+          const maxActual = Math.max(...categories.map((c) => c.actual), 1);
 
           return (
             <div key={bucket.key} className="category-budget-bucket">
@@ -50,19 +83,88 @@ export function CategoryBudgetPanel({ summary }) {
               ) : (
                 <div className="category-budget-rows">
                   {categories.map((cat) => {
-                    const barWidth = Math.max(4, (cat.actual / maxAmount) * 100);
+                    const hasBudget = cat.budget != null && cat.budget > 0;
+                    const isEditingThis = editing?.category === cat.category;
+                    const isOverBudget = hasBudget && cat.actual > cat.budget;
+                    const pct = hasBudget
+                      ? Math.min((cat.actual / cat.budget) * 100, 100)
+                      : Math.max(4, (cat.actual / maxActual) * 100);
+
                     return (
                       <div key={cat.category} className="category-budget-row">
                         <span className="category-budget-name">{cat.label}</span>
-                        <div className="comparison-track single">
+
+                        {isEditingThis ? (
+                          <div className="category-budget-edit-row">
+                            <input
+                              type="number"
+                              className="category-budget-input"
+                              value={editing.value}
+                              onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                              onKeyDown={handleKeyDown}
+                              autoFocus
+                              min="0"
+                              placeholder="Sin límite"
+                            />
+                            <button
+                              className="cb-edit-confirm"
+                              onClick={handleSave}
+                              disabled={saving}
+                              title="Guardar"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              className="cb-edit-cancel"
+                              onClick={() => setEditing(null)}
+                              title="Cancelar"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
                           <div
-                            className="comparison-fill inventory"
-                            style={{ width: `${barWidth}%` }}
-                          />
+                            className={`category-budget-bar-track${hasBudget ? " has-budget" : ""}`}
+                            title={hasBudget ? `${Math.round(pct)}% del presupuesto` : ""}
+                          >
+                            <div
+                              className={`category-budget-bar-fill${isOverBudget ? " over" : ""}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        )}
+
+                        <div className="category-budget-meta">
+                          <span className={`category-budget-amount${isOverBudget ? " text-danger" : ""}`}>
+                            {formatCompactGuarani(cat.actual)}
+                          </span>
+                          {!isEditingThis && (
+                            hasBudget ? (
+                              <button
+                                className="cb-budget-btn"
+                                onClick={() => startEdit(cat)}
+                                title="Editar presupuesto"
+                              >
+                                / {formatCompactGuarani(cat.budget)}
+                              </button>
+                            ) : (
+                              <button
+                                className="cb-budget-btn muted"
+                                onClick={() => startEdit(cat)}
+                                title="Fijar presupuesto"
+                              >
+                                + límite
+                              </button>
+                            )
+                          )}
+                          {hasBudget && !isEditingThis && (
+                            <small className={isOverBudget ? "text-danger" : "text-muted"}>
+                              {isOverBudget
+                                ? `+${formatCompactGuarani(Math.abs(cat.remaining ?? 0))} exceso`
+                                : `${formatCompactGuarani(cat.remaining ?? 0)} restante`}
+                            </small>
+                          )}
                         </div>
-                        <span className="category-budget-amount">
-                          {formatCompactGuarani(cat.actual)}
-                        </span>
                       </div>
                     );
                   })}

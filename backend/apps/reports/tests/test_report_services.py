@@ -486,3 +486,81 @@ class TestComputeCategoryBreakdown:
         breakdown = _compute_category_breakdown(MONTH, YEAR, settings_singleton.get_config())
         assert len(breakdown) > 0
         assert "committed_variable_total" in breakdown[0]
+
+
+# ---------------------------------------------------------------------------
+# _compute_category_breakdown — budget y remaining
+# ---------------------------------------------------------------------------
+
+class TestComputeCategoryBreakdownBudget:
+    def _settings_with_budget(self, settings_singleton, category, budget):
+        data = settings_singleton.get_config()
+        for cat in data["categories"]:
+            if cat["value"] == category:
+                cat["monthly_budget"] = budget
+        return data
+
+    def test_sin_budget_devuelve_none(self, db, settings_singleton):
+        VariableExpense.objects.create(
+            amount=Decimal("200"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_singleton.get_config())
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        assert food is not None
+        assert food["budget"] is None
+        assert food["remaining"] is None
+
+    def test_con_budget_calcula_remaining_positivo(self, db, settings_singleton):
+        settings_data = self._settings_with_budget(settings_singleton, "food", 500.0)
+        VariableExpense.objects.create(
+            amount=Decimal("200"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_data)
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        assert food is not None
+        assert food["budget"] == pytest.approx(500.0)
+        assert food["remaining"] == pytest.approx(300.0)
+
+    def test_remaining_negativo_cuando_excede_budget(self, db, settings_singleton):
+        settings_data = self._settings_with_budget(settings_singleton, "food", 100.0)
+        VariableExpense.objects.create(
+            amount=Decimal("300"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_data)
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        assert food is not None
+        assert food["budget"] == pytest.approx(100.0)
+        assert food["remaining"] == pytest.approx(-200.0)
+
+    def test_budget_cero_tratado_como_sin_budget(self, db, settings_singleton):
+        settings_data = self._settings_with_budget(settings_singleton, "food", 0)
+        VariableExpense.objects.create(
+            amount=Decimal("200"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_data)
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        assert food is not None
+        assert food["budget"] is None
+        assert food["remaining"] is None
+
+    def test_budget_aplica_solo_a_la_categoria_correcta(self, db, settings_singleton):
+        settings_data = self._settings_with_budget(settings_singleton, "food", 400.0)
+        VariableExpense.objects.create(
+            amount=Decimal("100"), category="food", budget_bucket="needs",
+            date=date(YEAR, MONTH, 5), status=VariableExpense.STATUS_PAID,
+        )
+        VariableExpense.objects.create(
+            amount=Decimal("50"), category="leisure", budget_bucket="wants",
+            date=date(YEAR, MONTH, 6), status=VariableExpense.STATUS_PAID,
+        )
+        breakdown = _compute_category_breakdown(MONTH, YEAR, settings_data)
+        food = next((e for e in breakdown if e["category"] == "food"), None)
+        leisure = next((e for e in breakdown if e["category"] == "leisure"), None)
+        assert food["budget"] == pytest.approx(400.0)
+        assert food["remaining"] == pytest.approx(300.0)
+        assert leisure["budget"] is None
+        assert leisure["remaining"] is None
